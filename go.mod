@@ -1,3 +1,3 @@
-module go-freak
+module github.com/Perelandric/go-freak
 
 go 1.15
