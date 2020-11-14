@@ -67,7 +67,7 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 		case wrapperStart:
 			// TODO: Use a slice from a memory cache
-			r.wrapperEndingFuncs = make([]func(*Response), 0, 2)
+			r.wrapperEndingFuncs = getRespEndingFuncSlice()
 			m.fn.Call(callArgs)
 			wrapperEndStack = append(wrapperEndStack, r.wrapperEndingFuncs)
 			r.wrapperEndingFuncs = nil
@@ -82,17 +82,11 @@ func (c *component) do(r *Response, dataI interface{}) {
 			wrapperEndStack[lastIdx] = nil
 			wrapperEndStack = wrapperEndStack[0:lastIdx:cap(wrapperEndStack)]
 
-			for i := len(endingsForStart) - 1; i != -1; i-- {
-				var fn = endingsForStart[i]
-				endingsForStart = nil
-
-				if !r.halt {
-					fn(r)
-				}
+			for i := len(endingsForStart) - 1; i != -1 && !r.halt; i-- {
+				endingsForStart[i](r)
 			}
 
-			// TODO: Return to memory cache
-			endingsForStart = endingsForStart[0:0:min(2, cap(endingsForStart))]
+			returnRespEndingFuncSlice(endingsForStart)
 
 			continue
 
