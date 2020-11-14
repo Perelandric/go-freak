@@ -1,0 +1,60 @@
+package freak
+
+import (
+	"net/http"
+)
+
+type RouteData struct {
+}
+
+type Response struct {
+	resp http.ResponseWriter
+	req  *http.Request
+
+	wrapperEndingStack [][]func(*Response)
+
+	halt bool
+
+	buf []byte
+}
+
+func (c *component) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var resp = Response{
+		req:  r,
+		resp: w,
+		buf:  make([]byte, 0, 512),
+	}
+
+	c.do(&resp, &RouteData{})
+
+	if resp.halt {
+		return
+	}
+
+	w.Write(resp.buf)
+}
+
+func (r *Response) WriteBytes(b []byte) {
+	r.buf = append(r.buf, b...)
+}
+
+func (r *Response) WriteString(s string) {
+	r.buf = append(r.buf, s...)
+}
+
+type WrapperResponse struct {
+	r *Response
+}
+
+func (wr *WrapperResponse) LoadWrapper(w *wrapper, dataI interface{}) {
+	if w == nil {
+		return
+	}
+	w.preContent.do(wr.r, dataI)
+
+	var lastIdx = len(wr.r.wrapperEndingStack) - 1
+
+	wr.r.wrapperEndingStack[lastIdx] = append(wr.r.wrapperEndingStack[lastIdx], func(r *Response) {
+		w.postContent.do(r, dataI)
+	})
+}
