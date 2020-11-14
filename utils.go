@@ -6,12 +6,15 @@ import "sync"
 var wrapEndingSliceStackPool sync.Pool
 
 func getWrapEndingSliceStack(expectedSize int) [][]func(*Response) {
-	var s = wrapEndingSliceStackPool.Get().([][]func(*Response))
+	var v = wrapEndingSliceStackPool.Get()
+	var s [][]func(*Response)
 
-	if s == nil {
+	if v == nil {
 		s = make([][]func(*Response), expectedSize, expectedSize)
 
 	} else {
+		s = v.([][]func(*Response))
+
 		for cap(s) < expectedSize {
 			s = append(s, make([]func(*Response), 0, 1))
 		}
