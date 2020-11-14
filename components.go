@@ -52,10 +52,11 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 	var callArgs = []reflect.Value{reflect.ValueOf(r), reflect.ValueOf(dataI)}
 	var wrapperEndStack [][]func(*Response)
+	var endStackIndex = -1
 
 	if c.maxWrapperNesting != 0 {
-		// TODO: Use cached slices
-		wrapperEndStack = make([][]func(*Response), 0, c.maxWrapperNesting)
+		wrapperEndStack = getWrapEndingSliceStack(c.maxWrapperNesting)
+		defer returnWrapEndingSliceStack(wrapperEndStack)
 	}
 
 	for _, m := range c.markers {
@@ -66,27 +67,37 @@ func (c *component) do(r *Response, dataI interface{}) {
 			m.fn.Call(callArgs)
 
 		case wrapperStart:
-			// TODO: Use a slice from a memory cache
-			r.wrapperEndingFuncs = getRespEndingFuncSlice()
+			endStackIndex++
+
+			if endStackIndex >= len(wrapperEndStack) {
+				// TODO: Internal error?
+
+				// This should never really happen, since we know the maximum number
+				// of nested wrappers that were defined for this component
+			}
+
+			r.wrapperEndingFuncs = wrapperEndStack[endStackIndex]
+
 			m.fn.Call(callArgs)
-			wrapperEndStack = append(wrapperEndStack, r.wrapperEndingFuncs)
+
+			// In case the end-funcs slice was grown beyond itw original capacity
+			wrapperEndStack[endStackIndex] = r.wrapperEndingFuncs
+
 			r.wrapperEndingFuncs = nil
 
 		case wrapperEnd:
 			if len(wrapperEndStack) == 0 {
-				break // Internal error?
+				break // TODO: Internal error?
 			}
 
-			var lastIdx = len(wrapperEndStack) - 1
-			var endingsForStart = wrapperEndStack[lastIdx]
-			wrapperEndStack[lastIdx] = nil
-			wrapperEndStack = wrapperEndStack[0:lastIdx:cap(wrapperEndStack)]
+			var funcSlice = wrapperEndStack[endStackIndex]
 
-			for i := len(endingsForStart) - 1; i != -1 && !r.halt; i-- {
-				endingsForStart[i](r)
+			for i := len(funcSlice) - 1; i != -1 && !r.halt; i-- {
+				funcSlice[i](r)
 			}
 
-			returnRespEndingFuncSlice(endingsForStart)
+			wrapperEndStack[endStackIndex] = funcSlice[0:cap(funcSlice)]
+			endStackIndex--
 
 			continue
 
@@ -97,6 +108,10 @@ func (c *component) do(r *Response, dataI interface{}) {
 		if r.halt {
 			return
 		}
+	}
+
+	if endStackIndex != -1 {
+		// TODO: Internal error?
 	}
 
 	r.buf = append(r.buf, c.htmlTail...)
