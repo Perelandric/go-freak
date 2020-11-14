@@ -76,9 +76,14 @@ func (c *component) do(r *Response, dataI interface{}) {
 				// of nested wrappers that were defined for this component
 			}
 
-			r.wrapperEndingFuncs = wrapperEndStack[endStackIndex]
+			var funcSlice = wrapperEndStack[endStackIndex]
+			r.wrapperEndingFuncs = funcSlice[0:0:cap(funcSlice)]
 
 			m.fn.Call(callArgs)
+
+			if r.halt {
+				return
+			}
 
 			// In case the end-funcs slice was grown beyond itw original capacity
 			wrapperEndStack[endStackIndex] = r.wrapperEndingFuncs
@@ -96,7 +101,6 @@ func (c *component) do(r *Response, dataI interface{}) {
 				funcSlice[i](r)
 			}
 
-			wrapperEndStack[endStackIndex] = funcSlice[0:cap(funcSlice)]
 			endStackIndex--
 
 			continue
