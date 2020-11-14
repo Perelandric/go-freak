@@ -11,7 +11,7 @@ type Response struct {
 	resp http.ResponseWriter
 	req  *http.Request
 
-	wrapperEndingStack [][]func(*Response)
+	wrapperEndingFuncs []func(*Response)
 
 	halt bool
 
@@ -50,11 +50,14 @@ func (wr *WrapperResponse) LoadWrapper(w *wrapper, dataI interface{}) {
 	if w == nil {
 		return
 	}
+
+	// Originally provided by the calling component
+	var temp = wr.r.wrapperEndingFuncs
+	wr.r.wrapperEndingFuncs = nil
+
 	w.preContent.do(wr.r, dataI)
 
-	var lastIdx = len(wr.r.wrapperEndingStack) - 1
-
-	wr.r.wrapperEndingStack[lastIdx] = append(wr.r.wrapperEndingStack[lastIdx], func(r *Response) {
+	wr.r.wrapperEndingFuncs = append(temp, func(r *Response) {
 		w.postContent.do(r, dataI)
 	})
 }

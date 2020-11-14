@@ -61,10 +61,13 @@ func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []
 
 	var htmlPrefixStartIdx = 0
 	var markerIndex = 0
+	var currentWrapperNesting = 0
 
 	var re = regexp.MustCompile(
 		`(}})|(\${})|\${{([a-zA-Z][-_\w]*)|\${([a-zA-Z][-_\w]*)}`,
 	)
+
+	// TODO: Need to verify balance of wrapper start and end points
 
 	var m = re.FindAllStringSubmatchIndex(string(html), -1)
 
@@ -92,6 +95,8 @@ func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []
 				make([]*marker, 0, len(markers)+1), markers[0:markerIndex]...), newMarker), markers[markerIndex:]...,
 			)
 
+			currentWrapperNesting--
+
 		case 2: // Wrapper content '${}'
 			if wrapperContentMarkerIndex != -1 {
 				panic("Only one wrapper content marker '${}' is allowed")
@@ -105,6 +110,12 @@ func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []
 		case 3: // Wrapper start '${{foo'
 			markers[markerIndex].kind = wrapperStart
 			checkValid(subMatch, markers, markerIndex)
+
+			currentWrapperNesting++
+
+			if currentWrapperNesting > c.maxWrapperNesting {
+				c.maxWrapperNesting = currentWrapperNesting
+			}
 
 		case 4: // Placeholder '${bar}'
 			checkValid(subMatch, markers, markerIndex)
@@ -120,6 +131,10 @@ func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []
 
 	c.htmlTail = []byte(html[htmlPrefixStartIdx:])
 
+	if currentWrapperNesting != 0 {
+		panic("Unbalanced Wrapper start and end points")
+	}
+
 	if markerIndex != len(markers) {
 		panic("There must be an equal number of HTML markers and marker functions")
 	}
@@ -133,60 +148,6 @@ func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []
 	}
 
 	return wrapperContentMarkerIndex, wrapperTailBeforeContentMarker
-}
-
-func (c *component) do(r *Response, dataI interface{}) {
-	if r.halt {
-		return
-	}
-
-	var callArgs = []reflect.Value{reflect.ValueOf(r), reflect.ValueOf(dataI)}
-
-	for _, m := range c.markers {
-		r.buf = append(r.buf, m.htmlPrefix...)
-
-		switch m.kind {
-		case plainMarker:
-			m.fn.Call(callArgs)
-
-		case wrapperStart:
-			r.wrapperEndingStack = append(r.wrapperEndingStack, nil)
-			m.fn.Call(callArgs)
-
-		case wrapperEnd:
-			if len(r.wrapperEndingStack) == 0 {
-				// Internal error?
-				break
-			}
-
-			var lastIdx = len(r.wrapperEndingStack) - 1
-			var wrapEnd = r.wrapperEndingStack[lastIdx]
-
-			for i := len(wrapEnd) - 1; i != -1; i-- {
-				wrapEnd[i](r)
-				wrapEnd[i] = nil
-
-				if r.halt {
-					// Make sure all the functions get cleared away
-					for i--; i != -1; i-- {
-						wrapEnd[i] = nil
-					}
-					break
-				}
-			}
-
-			continue
-
-		default:
-			panic("unreachable")
-		}
-
-		if r.halt {
-			return
-		}
-	}
-
-	r.buf = append(r.buf, c.htmlTail...)
 }
 
 func min(a, b int) int {
