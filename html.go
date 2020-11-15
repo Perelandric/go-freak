@@ -426,14 +426,24 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
 
-				for _, attr := range sortAttrs(currNode.Attr) {
-					buf.WriteByte(' ')
+				for i, attr := range sortAttrs(currNode.Attr) {
+					if i == 0 || flags&HTMLWhitespace == 0 {
+						buf.WriteByte(' ')
+					}
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
 
-					// TODO: Need to omit quotes if compress flag is present, and if there's no
-					// 			marker within. Should also retain the original quote style used.
-					buf.WriteString(strconv.Quote(attr.Val))
+					// TODO: Eventually compress proper boolean attr values to nothing.
+					// 	`disabled="disabled"` or `disabled=""` becomes `disabled`
+					// 		It would only be done on specific attrs for specific elems.
+					if flags&HTMLAttrQuotes == 0 ||
+						len(attr.Val) == 0 ||
+						strings.Contains(attr.Val, "${") ||
+						strings.ContainsAny(attr.Val, "\" \t\r\n") {
+						buf.WriteString(strconv.Quote(attr.Val))
+					} else {
+						buf.WriteString(attr.Val)
+					}
 				}
 
 				buf.WriteByte('>')
