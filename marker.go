@@ -55,7 +55,7 @@ func toInternalMarkers(markers []Marker) []*marker {
 	return res
 }
 
-func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []byte) {
+func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, []byte) {
 	var wrapperContentMarkerIndex = -1
 	var wrapperTailBeforeContentMarker []byte
 
@@ -74,7 +74,7 @@ func (c *component) processFuncs(css CSS, html HTML, markers []*marker) (int, []
 	for _, match := range m {
 
 		var matchedSub = -1
-		var subMatch HTML
+		var subMatch string
 
 		for i := 2; i < len(match); i += 2 {
 			if match[i] != -1 {
@@ -157,7 +157,7 @@ func min(a, b int) int {
 	return b
 }
 
-func checkValid(name HTML, markers []*marker, markerIndex int) {
+func checkValid(name string, markers []*marker, markerIndex int) {
 	if string(name) != markers[markerIndex].name {
 		panic("Marker function names must be found in the same order as defined in HTML")
 	}

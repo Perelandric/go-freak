@@ -2,12 +2,50 @@ package freak
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
+
+type HTMLCompressFlag uint8
+
+const (
+	HTMLAttrQuotes = HTMLCompressFlag(1 << iota)
+	HTMLComments
+	HTMLEndTags
+	HTMLStartTags
+	HTMLWhitespace
+
+	HTMLCompressNone = HTMLCompressFlag(0)
+	HTMLCompressAll  = HTMLCompressFlag(
+		HTMLAttrQuotes | HTMLComments | HTMLEndTags | HTMLStartTags | HTMLWhitespace,
+	)
+)
+
+func compressHTML(flags HTMLCompressFlag, markup HTML) string {
+	if flags == HTMLCompressNone {
+		return string(markup)
+	}
+
+	var ctxNode = getContext(strToBytes(string(markup)))
+
+	var nodes, err = html.ParseFragment(strings.NewReader(string(markup)), ctxNode)
+	if err != nil {
+		panic(err)
+	}
+
+	var buf strings.Builder
+	for _, n := range nodes {
+		render(n, &buf, flags)
+	}
+
+	return buf.String()
+}
 
 var reTag = regexp.MustCompile(`<(!(--)?)?[a-zA-Z][a-zA-Z0-9]*`)
 
@@ -124,8 +162,8 @@ func canCompressElem(a atom.Atom) bool {
 	}
 }
 
-func canElideOpener(n *html.Node, doingCompress bool) bool {
-	if !doingCompress || len(n.Attr) != 0 {
+func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
+	if flags&HTMLStartTags == 0 || len(n.Attr) != 0 {
 		return false
 	}
 
@@ -138,7 +176,7 @@ func canElideOpener(n *html.Node, doingCompress bool) bool {
 	case atom.Head:
 		// A HEAD element's start tag may be omitted if the element is empty, or
 		// if the first thing inside the HEAD element is an element.
-		var firstChild = compressedNode(n.FirstChild)
+		var firstChild = compressedNode(n.FirstChild, flags)
 
 		return firstChild == nil || firstChild.Type == html.ElementNode
 
@@ -147,11 +185,10 @@ func canElideOpener(n *html.Node, doingCompress bool) bool {
 		// if the first thing inside the body element is not a space character or
 		// a comment, except if the first thing inside the body element is a
 		// script or style element.
-		var firstChild = compressedNode(n.FirstChild)
-
-		return firstChild == nil ||
-			(!firstCharIsSpace(firstChild) && // Commens are removed
-				!isOneOf(firstChild, atom.Meta, atom.Link, atom.Script, atom.Style, atom.Template))
+		return n.FirstChild == nil ||
+			(n.FirstChild.Type != html.CommentNode &&
+				!firstCharIsSpace(n.FirstChild) &&
+				!isOneOf(n.FirstChild, atom.Script, atom.Style))
 
 	case atom.Colgroup:
 		// A colgroup element's start tag may be omitted if the first thing inside the
@@ -191,17 +228,25 @@ func isOneOf(n *html.Node, atoms ...atom.Atom) bool {
 	return false
 }
 
-func compressedNode(n *html.Node) *html.Node {
+func compressedNode(n *html.Node, flags HTMLCompressFlag) *html.Node {
+	var removeComments = flags&HTMLComments == HTMLComments
+	var compressSpace = flags&HTMLWhitespace == HTMLWhitespace
+
+	if !removeComments && !compressSpace {
+		return n
+	}
+
 	for {
 		if n == nil {
 			return n
 		}
-		if n.Type == html.CommentNode {
+
+		if removeComments && n.Type == html.CommentNode {
 			n = n.NextSibling
 			continue // Comment nodes will get compressed away
 		}
 
-		if n.Type == html.TextNode {
+		if compressSpace && n.Type == html.TextNode {
 			var trimmed = strings.TrimSpace(n.Data)
 			if len(trimmed) == 0 {
 				n = n.NextSibling
@@ -212,16 +257,16 @@ func compressedNode(n *html.Node) *html.Node {
 	}
 }
 
-func canElideCloser(n *html.Node, doingCompress bool) bool {
+func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
+	if flags&HTMLEndTags == 0 {
+		return false
+	}
+
 	if isEmptyElement(n.DataAtom) {
 		return true // elements that don't allow children never get the closer
 	}
 
-	if !doingCompress {
-		return false
-	}
-
-	var next = compressedNode(n.NextSibling)
+	var next = compressedNode(n.NextSibling, flags)
 
 	switch n.DataAtom {
 	case atom.Html:
@@ -344,4 +389,80 @@ func canElideCloser(n *html.Node, doingCompress bool) bool {
 	default:
 		return false
 	}
+}
+
+func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
+	for currNode := root; currNode != nil; currNode = currNode.NextSibling {
+		switch currNode.Type {
+		default:
+			html.Render(buf, currNode)
+
+		case html.ErrorNode:
+			panic(fmt.Sprintf("%s", currNode.Data))
+
+		case html.DoctypeNode:
+			html.Render(buf, currNode)
+
+		case html.DocumentNode:
+			if !canElideOpener(currNode, flags) {
+				html.Render(buf, currNode)
+			}
+
+		case html.CommentNode:
+			if flags&HTMLComments == 0 {
+				html.Render(buf, currNode)
+			}
+
+		case html.TextNode:
+			if flags&HTMLWhitespace == 0 {
+				html.Render(buf, currNode)
+
+			} else if len(strings.TrimSpace(currNode.Data)) != 0 {
+				buf.WriteString(reSpaces.ReplaceAllString(currNode.Data, " "))
+			}
+
+		case html.ElementNode:
+			if flags&HTMLStartTags == 0 || !canElideOpener(currNode, flags) {
+				buf.WriteByte('<')
+				buf.WriteString(currNode.Data)
+
+				for _, attr := range sortAttrs(currNode.Attr) {
+					buf.WriteString(attr.Key)
+					buf.WriteByte('=')
+
+					// TODO: Need to omit quotes if compress flag is present, and if there's no
+					// 			marker within. Should also retain the original quote style used.
+					buf.WriteString(strconv.Quote(attr.Val))
+				}
+
+				buf.WriteByte('>')
+			}
+
+			render(currNode.FirstChild, buf, flags)
+
+			if flags&HTMLEndTags == 0 || !canElideCloser(currNode, flags) {
+				buf.WriteString("</")
+				buf.WriteString(currNode.Data)
+				buf.WriteByte('>')
+			}
+		}
+	}
+}
+
+func sortAttrs(attrs []html.Attribute) []html.Attribute {
+	sort.Slice(attrs, func(i, j int) bool {
+		var attrI = attrs[i].Key
+		var attrJ = attrs[j].Key
+
+		var iIsData = strings.HasPrefix(attrI, "data-")
+		var jIsData = strings.HasPrefix(attrJ, "data-")
+
+		if iIsData != jIsData {
+			return jIsData
+		}
+
+		return strings.Compare(attrI, attrJ) < 0
+	})
+
+	return attrs
 }

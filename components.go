@@ -8,10 +8,14 @@ type component struct {
 	maxWrapperNesting int
 }
 
-func Component(css CSS, html HTML, markers ...Marker) *component {
+func Component(
+	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
+) *component {
 	var c component
 
-	contentMarkerIndex, _ := c.processFuncs(css, html, toInternalMarkers(markers))
+	var htmlStr = compressHTML(htmlFlags, html)
+
+	contentMarkerIndex, _ := c.processFuncs(css, htmlStr, toInternalMarkers(markers))
 	if contentMarkerIndex != -1 {
 		panic("Only a Wrapper component may define a '${}' content marker")
 	}
@@ -23,9 +27,14 @@ type wrapper struct {
 	postContent component
 }
 
-func Wrapper(css CSS, html HTML, markers ...Marker) *wrapper {
+func Wrapper(
+	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
+) *wrapper {
+
+	var htmlStr = compressHTML(htmlFlags, html)
+
 	var c component
-	contentMarkerIndex, firstHalfTail := c.processFuncs(css, html, toInternalMarkers(markers))
+	contentMarkerIndex, firstHalfTail := c.processFuncs(css, htmlStr, toInternalMarkers(markers))
 
 	if contentMarkerIndex == -1 {
 		panic("A Wrapper must define a '${}' content marker")
