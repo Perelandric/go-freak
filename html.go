@@ -454,11 +454,11 @@ func sortAttrs(attrs []html.Attribute) []html.Attribute {
 		var attrI = attrs[i].Key
 		var attrJ = attrs[j].Key
 
-		var iIsData = strings.HasPrefix(attrI, "data-")
-		var jIsData = strings.HasPrefix(attrJ, "data-")
+		var iIsDataAttr = strings.HasPrefix(attrI, "data-")
+		var jIsDataAttr = strings.HasPrefix(attrJ, "data-")
 
-		if iIsData != jIsData {
-			return jIsData
+		if iIsDataAttr != jIsDataAttr {
+			return jIsDataAttr
 		}
 
 		return strings.Compare(attrI, attrJ) < 0
