@@ -2,7 +2,6 @@ package freak
 
 import (
 	"bytes"
-	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -412,7 +411,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			html.Render(buf, currNode)
 
 		case html.ErrorNode:
-			panic(fmt.Sprintf("%s", currNode.Data))
+			panic(currNode.Data)
 
 		case html.DoctypeNode:
 			html.Render(buf, currNode)
@@ -420,6 +419,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 		case html.DocumentNode:
 			// We want to traverse its children (probably !doctype and html)
 			render(currNode.FirstChild, buf, flags)
+			return
 
 		case html.CommentNode:
 			if flags&HTMLComments == 0 {
