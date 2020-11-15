@@ -413,9 +413,6 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 		case html.ErrorNode:
 			panic(currNode.Data)
 
-		case html.DoctypeNode:
-			html.Render(buf, currNode)
-
 		case html.DocumentNode:
 			// We want to traverse its children (probably !doctype and html)
 			render(currNode.FirstChild, buf, flags)
