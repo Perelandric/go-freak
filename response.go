@@ -35,15 +35,19 @@ func (c *component) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (r *Response) WriteBytes(b []byte) {
-	r.buf = append(r.buf, b...)
+	r.buf = append(r.buf, escapeHTMLBytes(b)...)
 }
 
 func (r *Response) WriteString(s string) {
-	r.buf = append(r.buf, s...)
+	r.buf = append(r.buf, escapeHTMLString(s)...)
 }
 
 func (r *Response) WriteStringNoEscape(s string) {
 	r.buf = append(r.buf, s...)
+}
+
+func (r *Response) WriteBytesNoEscape(b []byte) {
+	r.buf = append(r.buf, b...)
 }
 
 func (r *Response) LoadComponent(c *component, dataI interface{}) {
