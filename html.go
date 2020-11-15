@@ -426,8 +426,9 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
 
-				for i, attr := range sortAttrs(currNode.Attr) {
-					if i == 0 || flags&HTMLWhitespace == 0 {
+				var needSpace = true
+				for _, attr := range sortAttrs(currNode.Attr) {
+					if needSpace || flags&HTMLWhitespace == 0 {
 						buf.WriteByte(' ')
 					}
 					buf.WriteString(attr.Key)
@@ -443,6 +444,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 						buf.WriteString(strconv.Quote(attr.Val))
 					} else {
 						buf.WriteString(attr.Val)
+						needSpace = true
 					}
 				}
 
