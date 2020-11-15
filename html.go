@@ -440,8 +440,9 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 					if flags&HTMLAttrQuotes == 0 ||
 						len(attr.Val) == 0 ||
 						strings.Contains(attr.Val, "${") ||
-						strings.ContainsAny(attr.Val, "\" \t\r\n") {
+						strings.ContainsAny(attr.Val, "\" \t\r\n>") {
 						buf.WriteString(strconv.Quote(attr.Val))
+
 					} else {
 						buf.WriteString(attr.Val)
 						needSpace = true
