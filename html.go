@@ -32,9 +32,20 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 		return string(markup)
 	}
 
-	var ctxNode = getContext(strToBytes(string(markup)))
+	var markupStr = string(markup)
 
-	var nodes, err = html.ParseFragment(strings.NewReader(string(markup)), ctxNode)
+	var ctxNode = getContext(strToBytes(markupStr))
+	var node *html.Node
+	var nodes []*html.Node
+	var err error
+
+	if ctxNode == nil { // We're at the top of a page
+		node, err = html.Parse(strings.NewReader(markupStr))
+		nodes = []*html.Node{node}
+
+	} else {
+		nodes, err = html.ParseFragment(strings.NewReader(string(markup)), ctxNode)
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -195,6 +206,7 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 		// colgroup element is a col element, and if the element is not immediately
 		// preceded by another colgroup element whose end tag has been omitted. (It
 		// can't be omitted if the element is empty.)
+
 		return false // TODO: Implement
 
 	case atom.Tbody:
@@ -202,6 +214,7 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 		// tbody element is a tr element, and if the element is not immediately preceded
 		// by a tbody, thead, or tfoot element whose end tag has been omitted. (It can't
 		// be omitted if the element is empty.)
+
 		return false // TODO: Implement
 
 	default:
@@ -394,6 +407,7 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 	for currNode := root; currNode != nil; currNode = currNode.NextSibling {
 		switch currNode.Type {
+
 		default:
 			html.Render(buf, currNode)
 
@@ -404,9 +418,8 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			html.Render(buf, currNode)
 
 		case html.DocumentNode:
-			if !canElideOpener(currNode, flags) {
-				html.Render(buf, currNode)
-			}
+			// We want to traverse its children (probably !doctype and html)
+			render(currNode.FirstChild, buf, flags)
 
 		case html.CommentNode:
 			if flags&HTMLComments == 0 {
