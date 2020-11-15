@@ -427,6 +427,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteString(currNode.Data)
 
 				for _, attr := range sortAttrs(currNode.Attr) {
+					buf.WriteByte(' ')
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
 
