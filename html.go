@@ -439,27 +439,17 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
 
-				var needSpace = true
-				for _, attr := range sortAttrs(currNode.Attr) {
-					if needSpace || flags&HTMLWhitespace == 0 {
+				for i, attr := range sortAttrs(currNode.Attr) {
+					if i == 0 || flags&HTMLWhitespace == 0 {
 						buf.WriteByte(' ')
 					}
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
+					buf.WriteString(strconv.Quote(attr.Val))
 
 					// TODO: Eventually compress proper boolean attr values to nothing.
 					// 	`disabled="disabled"` or `disabled=""` becomes `disabled`
 					// 		It would only be done on specific attrs for specific elems.
-					if flags&HTMLAttrQuotes == 0 ||
-						len(attr.Val) == 0 ||
-						strings.Contains(attr.Val, "${") ||
-						strings.ContainsAny(attr.Val, "\" \t\r\n>") {
-						buf.WriteString(strconv.Quote(attr.Val))
-
-					} else {
-						buf.WriteString(attr.Val)
-						needSpace = true
-					}
 				}
 
 				buf.WriteByte('>')
