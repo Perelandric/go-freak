@@ -11,7 +11,7 @@ import (
 
 var reTag = regexp.MustCompile(`<(!(--)?)?[a-zA-Z][a-zA-Z0-9]*`)
 
-func GetContext(htm []byte) *html.Node {
+func getContext(htm []byte) *html.Node {
 	var idcs = reTag.FindIndex(htm)
 	var name []byte
 
