@@ -412,11 +412,17 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 }
 
 func removeComments(root *html.Node) {
+	if root == nil {
+		return
+	}
+
 	currNode := root
 
 	for currNode != nil {
 		if currNode.Type != html.CommentNode {
+			removeComments(currNode.FirstChild)
 			currNode = currNode.NextSibling
+
 			continue
 		}
 
@@ -443,7 +449,6 @@ func removeComments(root *html.Node) {
 		} else {
 			currNode = currNode.NextSibling
 		}
-
 	}
 }
 
@@ -461,11 +466,6 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			// We want to traverse its children (probably !doctype and html)
 			render(currNode.FirstChild, buf, flags)
 			return
-
-		case html.CommentNode:
-			if flags&HTMLComments == 0 {
-				html.Render(buf, currNode)
-			}
 
 		case html.TextNode:
 			if flags&HTMLWhitespace == 0 {
