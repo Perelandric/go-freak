@@ -49,6 +49,14 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 		panic(err)
 	}
 
+	// If comments are to be removed, we do it first so that newly adjacent text
+	// nodes can be joined together, making space removal more accurante
+	if flags&HTMLComments == HTMLComments {
+		for _, n := range nodes {
+			removeComments(n)
+		}
+	}
+
 	var buf strings.Builder
 	for _, n := range nodes {
 		render(n, &buf, flags)
@@ -400,6 +408,42 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 
 	default:
 		return false
+	}
+}
+
+func removeComments(root *html.Node) {
+	currNode := root
+
+	for currNode != nil {
+		if currNode.Type != html.CommentNode {
+			currNode = currNode.NextSibling
+			continue
+		}
+
+		var prev, next = currNode.PrevSibling, currNode.NextSibling
+
+		// Remove the comment node that we eliminated
+		currNode.PrevSibling, currNode.NextSibling = nil, nil
+		currNode.Parent = nil
+
+		if prev != nil && next != nil &&
+			prev.Type == html.TextNode && next.Type == html.TextNode {
+
+			// prev and next are both text nodes, so join them into one
+			prev.Data += next.Data
+			prev.NextSibling = next.NextSibling
+			next.NextSibling.PrevSibling = prev
+
+			// Remove the text node that we eliminated
+			next.PrevSibling, next.NextSibling = nil, nil
+			next.Parent = nil
+
+			currNode = next.NextSibling
+
+		} else {
+			currNode = currNode.NextSibling
+		}
+
 	}
 }
 
