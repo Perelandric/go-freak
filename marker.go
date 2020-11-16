@@ -56,7 +56,7 @@ func toInternalMarkers(markers []Marker) []*marker {
 }
 
 var re = regexp.MustCompile(
-	`(}})|(\${})|\${{([a-zA-Z][-_\w]*)\s|\${([a-zA-Z][-_\w]*)}`,
+	`(}})|(\${})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
 )
 
 func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, []byte) {
