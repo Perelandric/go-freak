@@ -298,7 +298,7 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 	case atom.Html:
 		// An html element's end tag may be omitted if the html element is not
 		// immediately followed by a comment.
-		return true // With compression, comments are removed
+		return next == nil || next.Type != html.CommentNode
 
 	case atom.Head:
 		// A head element's end tag may be omitted if the head element is not
@@ -310,7 +310,7 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 	case atom.Body:
 		// A body element's end tag may be omitted if the body element is not
 		// immediately followed by a comment.
-		return true // With compression, comments are removed
+		return next == nil || next.Type != html.CommentNode
 
 	case atom.Li:
 		// An li element's end tag may be omitted if the li element is immediately
@@ -515,6 +515,11 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			return
 
 		case html.ElementNode:
+
+			// TODO: We should always keep the first start tag, last ending tag, and
+			//		maybe start/end tags adjacent to insertion points, since we don't really
+			// 		know what will be there for the analysis.
+
 			if flags&HTMLStartTags == 0 || !canElideOpener(currNode, flags) {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
