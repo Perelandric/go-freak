@@ -519,7 +519,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteString(currNode.Data)
 
 				for i, attr := range sortAttrs(currNode.Attr) {
-					if i == 0 || flags&HTMLWhitespace == 0 {
+					if i == 0 || flags&HTMLWhitespaceExtreme == 0 {
 						buf.WriteByte(' ')
 					}
 					buf.WriteString(attr.Key)
