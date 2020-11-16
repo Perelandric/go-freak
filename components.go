@@ -59,7 +59,8 @@ func (c *component) do(r *Response, dataI interface{}) {
 		return
 	}
 
-	var callArgs = []reflect.Value{reflect.ValueOf(r), reflect.ValueOf(dataI)}
+	var callArgs = [2]reflect.Value{r.thisAsValue, reflect.ValueOf(dataI)}
+
 	var wrapperEndStack [][]func(*Response)
 	var endStackIndex = -1
 
@@ -73,7 +74,7 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 		switch m.kind {
 		case plainMarker:
-			m.fn.Call(callArgs)
+			m.fn.Call(callArgs[:])
 
 		case wrapperStart:
 			endStackIndex++
@@ -88,7 +89,7 @@ func (c *component) do(r *Response, dataI interface{}) {
 			var funcSlice = wrapperEndStack[endStackIndex]
 			r.wrapperEndingFuncs = funcSlice[0:0:cap(funcSlice)]
 
-			m.fn.Call(callArgs)
+			m.fn.Call(callArgs[:])
 
 			if r.halt {
 				return

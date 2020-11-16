@@ -2,6 +2,7 @@ package freak
 
 import (
 	"net/http"
+	"reflect"
 )
 
 type RouteData struct {
@@ -12,6 +13,10 @@ type Response struct {
 	req  *http.Request
 
 	wrapperEndingFuncs []func(*Response)
+
+	// This is for calling the provided callbacks via reflection.
+	// It holds a circular reference to itself.
+	thisAsValue reflect.Value
 
 	halt bool
 
@@ -24,6 +29,8 @@ func (c *component) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		resp: w,
 		buf:  make([]byte, 0, 512),
 	}
+
+	resp.thisAsValue = reflect.ValueOf(&resp)
 
 	c.do(&resp, &RouteData{})
 
