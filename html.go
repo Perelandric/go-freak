@@ -433,18 +433,21 @@ func removeNode(n *html.Node) (prev, next *html.Node) {
 	return prev, next
 }
 
-func joinNextAdjacentTextNode(tn *html.Node) {
-	if tn == nil || tn.Type != html.TextNode {
-		return
+func joinNextAdjacentTextNode(tn *html.Node) (*html.Node, *html.Node) {
+	if tn == nil {
+		return nil, nil
 	}
+
 	var next = tn.NextSibling
-	if next == nil || next.Type != html.TextNode {
-		return
+	if next == nil || tn.Type != html.TextNode || next.Type != html.TextNode {
+		return tn, next
 	}
 
 	// The given and its next sibling are both text nodes
 	tn.Data += next.Data
 	removeNode(next)
+
+	return tn, tn.NextSibling
 }
 
 func removeComments(n *html.Node) {
@@ -462,13 +465,13 @@ func removeComments(n *html.Node) {
 		}
 
 		// Remove the comment node
-		var prev, _ = removeNode(currNode)
+		var prev, next = removeNode(currNode)
 
 		// If prev and its new sibling are text nodes, join their text into prev
 		// and remove that sibling
-		joinNextAdjacentTextNode(prev)
+		_, next = joinNextAdjacentTextNode(prev)
 
-		currNode = prev.NextSibling
+		currNode = next
 	}
 }
 
