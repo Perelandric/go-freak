@@ -423,11 +423,13 @@ func removeNode(n *html.Node) (prev, next *html.Node) {
 
 	if prev != nil {
 		prev.NextSibling = next
+		n.PrevSibling = nil
 	}
 	if next != nil {
 		next.PrevSibling = prev
+		n.NextSibling = nil
 	}
-	n.PrevSibling, n.NextSibling, n.Parent = nil, nil, nil
+	n.Parent = nil
 
 	return prev, next
 }
