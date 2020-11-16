@@ -505,7 +505,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 		default:
 			html.Render(buf, currNode)
 
-		case html.ErrorNode:
+		case html.ErrorNode, html.RawNode:
 			panic(currNode.Data)
 
 		case html.DocumentNode:
