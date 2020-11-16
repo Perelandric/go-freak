@@ -567,6 +567,10 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 					lastCharIsSpace(currNode.LastChild) &&
 					firstCharIsSpace(currNode.NextSibling) {
 					currNode.NextSibling.Data = currNode.NextSibling.Data[1:]
+
+					if currNode.NextSibling.Data == "" {
+						removeNode(currNode.NextSibling)
+					}
 				}
 
 			} else {
