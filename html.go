@@ -14,8 +14,7 @@ import (
 type HTMLCompressFlag uint8
 
 const (
-	HTMLAttrQuotes = HTMLCompressFlag(1 << iota)
-	HTMLComments
+	HTMLComments = HTMLCompressFlag(1 << iota)
 	HTMLEndTags
 	HTMLStartTags
 	HTMLWhitespace
@@ -23,8 +22,8 @@ const (
 
 	HTMLCompressNone = HTMLCompressFlag(0)
 	HTMLCompressAll  = HTMLCompressFlag(
-		HTMLAttrQuotes | HTMLComments | HTMLEndTags |
-			HTMLStartTags | HTMLWhitespace | HTMLWhitespaceExtreme,
+		HTMLComments | HTMLEndTags | HTMLStartTags |
+			HTMLWhitespace | HTMLWhitespaceExtreme,
 	)
 )
 
