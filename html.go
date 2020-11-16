@@ -21,7 +21,11 @@ const (
 	HTMLWhitespaceExtreme
 
 	HTMLCompressNone = HTMLCompressFlag(0)
-	HTMLCompressAll  = HTMLCompressFlag(
+	HTMLCompress     = HTMLCompressFlag(
+		HTMLComments | HTMLEndTags | HTMLStartTags |
+			HTMLWhitespace,
+	)
+	HTMLCompressExtreme = HTMLCompressFlag(
 		HTMLComments | HTMLEndTags | HTMLStartTags |
 			HTMLWhitespace | HTMLWhitespaceExtreme,
 	)
