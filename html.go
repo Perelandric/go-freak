@@ -19,10 +19,12 @@ const (
 	HTMLEndTags
 	HTMLStartTags
 	HTMLWhitespace
+	HTMLWhitespaceExtreme
 
 	HTMLCompressNone = HTMLCompressFlag(0)
 	HTMLCompressAll  = HTMLCompressFlag(
-		HTMLAttrQuotes | HTMLComments | HTMLEndTags | HTMLStartTags | HTMLWhitespace,
+		HTMLAttrQuotes | HTMLComments | HTMLEndTags |
+			HTMLStartTags | HTMLWhitespace | HTMLWhitespaceExtreme,
 	)
 )
 
@@ -54,6 +56,13 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 	if flags&HTMLComments == HTMLComments {
 		for _, n := range nodes {
 			removeComments(n)
+		}
+	}
+
+	// If whitespace is to be compressed, we do it first since it may impact tag omission
+	if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 {
+		for _, n := range nodes {
+			compressWhitespace(n, flags&HTMLWhitespaceExtreme == HTMLWhitespaceExtreme)
 		}
 	}
 
@@ -168,8 +177,6 @@ func isEmptyElement(name atom.Atom) bool {
 		return false
 	}
 }
-
-var reSpaces = regexp.MustCompile(`\s+`)
 
 func canCompressElem(a atom.Atom) bool {
 	switch a {
@@ -411,12 +418,39 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 	}
 }
 
-func removeComments(root *html.Node) {
-	if root == nil {
+func removeNode(n *html.Node) (prev, next *html.Node) {
+	prev, next = n.PrevSibling, n.NextSibling
+
+	if prev != nil {
+		prev.NextSibling = next
+	}
+	if next != nil {
+		next.PrevSibling = prev
+	}
+	n.PrevSibling, n.NextSibling, n.Parent = nil, nil, nil
+
+	return prev, next
+}
+
+func joinNextAdjacentTextNode(tn *html.Node) {
+	if tn == nil || tn.Type != html.TextNode {
+		return
+	}
+	var next = tn.NextSibling
+	if next == nil || tn.Type != html.TextNode {
 		return
 	}
 
-	currNode := root
+	// The given and its next sibling are both text nodes
+	tn.Data += next.Data
+	removeNode(next)
+}
+
+func removeComments(n *html.Node) {
+	if n == nil {
+		return
+	}
+	currNode := n
 
 	for currNode != nil {
 		if currNode.Type != html.CommentNode {
@@ -426,27 +460,39 @@ func removeComments(root *html.Node) {
 			continue
 		}
 
-		var prev, next = currNode.PrevSibling, currNode.NextSibling
+		// Remove the comment node
+		var prev, _ = removeNode(currNode)
 
-		// Remove the comment node that we eliminated
-		currNode.PrevSibling, currNode.NextSibling = nil, nil
-		currNode.Parent = nil
+		// If prev and its new sibling are text nodes, join their text into prev
+		// and remove that sibling
+		joinNextAdjacentTextNode(prev)
 
-		if prev != nil && next != nil &&
-			prev.Type == html.TextNode && next.Type == html.TextNode {
+		currNode = prev.NextSibling
+	}
+}
 
-			// prev and next are both text nodes, so join them into one
-			prev.Data += next.Data
-			prev.NextSibling = next.NextSibling
-			next.NextSibling.PrevSibling = prev
+var reSpaces = regexp.MustCompile(`\s+`)
 
-			// Remove the text node that we eliminated
-			next.PrevSibling, next.NextSibling = nil, nil
-			next.Parent = nil
+func compressWhitespace(n *html.Node, extreme bool) {
+	if n == nil {
+		return
+	}
+	currNode := n
 
-			currNode = next.NextSibling
+	for currNode != nil {
+		if currNode.Type != html.TextNode {
+			compressWhitespace(currNode.FirstChild, extreme)
+			currNode = currNode.NextSibling
+
+			continue
+		}
+
+		if extreme && len(strings.TrimSpace(currNode.Data)) == 0 {
+			// "extreme" whitespace compression removes whitespace-only text nodes
+			_, currNode = removeNode(currNode)
 
 		} else {
+			currNode.Data = reSpaces.ReplaceAllString(currNode.Data, " ")
 			currNode = currNode.NextSibling
 		}
 	}
@@ -466,14 +512,6 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			// We want to traverse its children (probably !doctype and html)
 			render(currNode.FirstChild, buf, flags)
 			return
-
-		case html.TextNode:
-			if flags&HTMLWhitespace == 0 {
-				html.Render(buf, currNode)
-
-			} else if len(strings.TrimSpace(currNode.Data)) != 0 {
-				buf.WriteString(reSpaces.ReplaceAllString(currNode.Data, " "))
-			}
 
 		case html.ElementNode:
 			if flags&HTMLStartTags == 0 || !canElideOpener(currNode, flags) {
