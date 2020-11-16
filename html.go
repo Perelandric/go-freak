@@ -482,7 +482,7 @@ func removeComments(n *html.Node) {
 
 var reSpaces = regexp.MustCompile(`\s+`)
 
-func compressWhitespace(n *html.Node, extreme bool) {
+func compressWhitespace(n *html.Node, isExtreme bool) {
 	if n == nil {
 		return
 	}
@@ -490,13 +490,13 @@ func compressWhitespace(n *html.Node, extreme bool) {
 
 	for currNode != nil {
 		if currNode.Type != html.TextNode {
-			compressWhitespace(currNode.FirstChild, extreme)
+			compressWhitespace(currNode.FirstChild, isExtreme)
 			currNode = currNode.NextSibling
 
 			continue
 		}
 
-		if extreme && len(strings.TrimSpace(currNode.Data)) == 0 {
+		if isExtreme && len(strings.TrimSpace(currNode.Data)) == 0 {
 			// "extreme" whitespace compression removes whitespace-only text nodes
 			_, currNode = removeNode(currNode)
 
