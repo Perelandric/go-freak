@@ -62,7 +62,7 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 	// If whitespace is to be compressed, we do it first since it may impact tag omission
 	if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 {
 		for _, n := range nodes {
-			compressWhitespace(n, flags&HTMLWhitespaceExtreme == HTMLWhitespaceExtreme)
+			compressWhitespace(n, flags&HTMLWhitespaceExtreme != 0)
 		}
 	}
 
