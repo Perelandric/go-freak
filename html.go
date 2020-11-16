@@ -235,11 +235,16 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 	}
 }
 
+func isTextWithData(n *html.Node) bool {
+	return n != nil && n.Type == html.TextNode && len(n.Data) != 0
+}
+
 func firstCharIsSpace(n *html.Node) bool {
-	return n != nil &&
-		n.Type == html.TextNode &&
-		len(n.Data) != 0 &&
-		reSpaces.MatchString(n.Data[0:1])
+	return isTextWithData(n) && reSpaces.MatchString(n.Data[0:1])
+}
+
+func lastCharIsSpace(n *html.Node) bool {
+	return isTextWithData(n) && reSpaces.MatchString(n.Data[len(n.Data)-1:])
 }
 
 func isOneOf(n *html.Node, atoms ...atom.Atom) bool {
@@ -523,7 +528,14 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			//		maybe start/end tags adjacent to insertion points, since we don't really
 			// 		know what will be there for the analysis.
 
-			if flags&HTMLStartTags == 0 || !canElideOpener(currNode, flags) {
+			if flags&HTMLStartTags != 0 && canElideOpener(currNode, flags) {
+
+				//		joinNextAdjacentTextNode(curr)
+
+				// TODO: We need to join adjacent text nodes that may occur with the omission
+				// 		of opening or closing tags, and then recompress whitespace.
+
+			} else {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
 
@@ -545,7 +557,19 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 
 			render(currNode.FirstChild, buf, flags)
 
-			if flags&HTMLEndTags == 0 || !canElideCloser(currNode, flags) {
+			if flags&HTMLEndTags != 0 && canElideCloser(currNode, flags) {
+				// If whitespace compression is enabled and
+				// 	the last child of current element ends in space, and
+				//	the next sibling of current element starts with space,
+				//	eliminate the leading space in the next node (since the
+				//	last child has already been rendered)
+				if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 &&
+					lastCharIsSpace(currNode.LastChild) &&
+					firstCharIsSpace(currNode.NextSibling) {
+					currNode.NextSibling.Data = currNode.NextSibling.Data[1:]
+				}
+
+			} else {
 				buf.WriteString("</")
 				buf.WriteString(currNode.Data)
 				buf.WriteByte('>')
