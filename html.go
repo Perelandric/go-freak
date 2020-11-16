@@ -523,17 +523,23 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			return
 
 		case html.ElementNode:
-
-			// TODO: We should always keep the first start tag, last ending tag, and
-			//		maybe start/end tags adjacent to insertion points, since we don't really
-			// 		know what will be there for the analysis.
-
 			if flags&HTMLStartTags != 0 && canElideOpener(currNode, flags) {
 
-				//		joinNextAdjacentTextNode(curr)
+				// If whitespace compression is enabled and
+				// 	the previous sibling ends in space, and
+				//	the first child of current element starts with space,
+				//	eliminate the leading space in the first child node (since
+				//	the previous sibling has already been rendered)
 
-				// TODO: We need to join adjacent text nodes that may occur with the omission
-				// 		of opening or closing tags, and then recompress whitespace.
+				if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 &&
+					lastCharIsSpace(currNode.PrevSibling) &&
+					firstCharIsSpace(currNode.FirstChild) {
+					currNode.FirstChild.Data = currNode.FirstChild.Data[1:]
+
+					if currNode.FirstChild.Data == "" {
+						removeNode(currNode.FirstChild)
+					}
+				}
 
 			} else {
 				buf.WriteByte('<')
@@ -558,11 +564,13 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			render(currNode.FirstChild, buf, flags)
 
 			if flags&HTMLEndTags != 0 && canElideCloser(currNode, flags) {
+
 				// If whitespace compression is enabled and
 				// 	the last child of current element ends in space, and
 				//	the next sibling of current element starts with space,
 				//	eliminate the leading space in the next node (since the
 				//	last child has already been rendered)
+
 				if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 &&
 					lastCharIsSpace(currNode.LastChild) &&
 					firstCharIsSpace(currNode.NextSibling) {
