@@ -55,6 +55,10 @@ func toInternalMarkers(markers []Marker) []*marker {
 	return res
 }
 
+var re = regexp.MustCompile(
+	`(}})|(\${})|\${{([a-zA-Z][-_\w]*)|\${([a-zA-Z][-_\w]*)}`,
+)
+
 func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, []byte) {
 	var wrapperContentMarkerIndex = -1
 	var wrapperTailBeforeContentMarker []byte
@@ -62,10 +66,6 @@ func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, 
 	var htmlPrefixStartIdx = 0
 	var markerIndex = 0
 	var currentWrapperNesting = 0
-
-	var re = regexp.MustCompile(
-		`(}})|(\${})|\${{([a-zA-Z][-_\w]*)|\${([a-zA-Z][-_\w]*)}`,
-	)
 
 	// TODO: Need to verify balance of wrapper start and end points
 
