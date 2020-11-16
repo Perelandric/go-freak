@@ -437,7 +437,7 @@ func joinNextAdjacentTextNode(tn *html.Node) {
 		return
 	}
 	var next = tn.NextSibling
-	if next == nil || tn.Type != html.TextNode {
+	if next == nil || next.Type != html.TextNode {
 		return
 	}
 
