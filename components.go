@@ -76,15 +76,8 @@ func (c *component) do(r *Response, dataI interface{}) {
 		case plainMarker:
 			m.fn.Call(callArgs[:])
 
-		case wrapperStart:
+		case wrapperStartMarker:
 			endStackIndex++
-
-			if endStackIndex >= len(wrapperEndStack) {
-				// TODO: Internal error?
-
-				// This should never really happen, since we know the maximum number
-				// of nested wrappers that were defined for this component
-			}
 
 			var funcSlice = wrapperEndStack[endStackIndex]
 			r.wrapperEndingFuncs = funcSlice[0:0:cap(funcSlice)]
@@ -100,11 +93,7 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 			r.wrapperEndingFuncs = nil
 
-		case wrapperEnd:
-			if len(wrapperEndStack) == 0 {
-				break // TODO: Internal error?
-			}
-
+		case wrapperEndMarker:
 			var funcSlice = wrapperEndStack[endStackIndex]
 
 			for i := len(funcSlice) - 1; i != -1 && !r.halt; i-- {
