@@ -437,7 +437,16 @@ func removeNode(n *html.Node) (prev, next *html.Node) {
 		next.PrevSibling = prev
 		n.NextSibling = nil
 	}
-	n.Parent = nil
+
+	if n.Parent != nil {
+		if prev == nil {
+			n.Parent.FirstChild = next
+		}
+		if next == nil {
+			n.Parent.LastChild = prev
+		}
+		n.Parent = nil
+	}
 
 	return prev, next
 }
