@@ -29,8 +29,8 @@ type markerKind uint8
 
 const (
 	plainMarker = markerKind(iota)
-	wrapperStart
-	wrapperEnd
+	wrapperStartMarker
+	wrapperEndMarker
 )
 
 type marker struct {
@@ -88,7 +88,7 @@ func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, 
 		case 1: // Wrapper end '}}'
 			var newMarker = &marker{
 				fn:   reflect.ValueOf(nil),
-				kind: wrapperEnd,
+				kind: wrapperEndMarker,
 			}
 
 			markers = append(append(append(
@@ -108,7 +108,7 @@ func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, 
 			continue
 
 		case 3: // Wrapper start '${{foo'
-			markers[markerIndex].kind = wrapperStart
+			markers[markerIndex].kind = wrapperStartMarker
 			checkValid(subMatch, markers, markerIndex)
 
 			currentWrapperNesting++
@@ -169,7 +169,7 @@ func checkValid(name string, markers []*marker, markerIndex int) {
 	}
 
 	var m = markers[markerIndex]
-	if m.kind == wrapperStart {
+	if m.kind == wrapperStartMarker {
 		// TODO: Check that the function signature is correct
 
 	} else if m.kind == plainMarker {
