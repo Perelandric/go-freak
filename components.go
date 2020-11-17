@@ -11,14 +11,10 @@ type component struct {
 func Component(
 	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
 ) *component {
-	var c component
+	c, _ := processFuncs(
+		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), false,
+	)
 
-	var htmlStr = compressHTML(htmlFlags, html)
-
-	contentMarkerIndex, _ := c.processFuncs(css, htmlStr, toInternalMarkers(markers))
-	if contentMarkerIndex != -1 {
-		panic("Only a Wrapper component may define a '${}' content marker")
-	}
 	return &c
 }
 
@@ -31,26 +27,13 @@ func Wrapper(
 	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
 ) *wrapper {
 
-	var htmlStr = compressHTML(htmlFlags, html)
-
-	var c component
-	contentMarkerIndex, firstHalfTail := c.processFuncs(css, htmlStr, toInternalMarkers(markers))
-
-	if contentMarkerIndex == -1 {
-		panic("A Wrapper must define a '${}' content marker")
-	}
+	c1, c2 := processFuncs(
+		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), true,
+	)
 
 	return &wrapper{
-		preContent: component{
-			markers:           c.markers[0:contentMarkerIndex],
-			htmlTail:          firstHalfTail,
-			maxWrapperNesting: c.maxWrapperNesting,
-		},
-		postContent: component{
-			markers:           c.markers[contentMarkerIndex:],
-			htmlTail:          c.htmlTail,
-			maxWrapperNesting: c.maxWrapperNesting,
-		},
+		preContent:  c1,
+		postContent: c2,
 	}
 }
 

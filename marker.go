@@ -30,7 +30,7 @@ type markerKind uint8
 const (
 	plainMarker = markerKind(iota)
 	wrapperStartMarker
-	wrapperEndMarker
+	wrapperEnd
 )
 
 type marker struct {
@@ -59,13 +59,24 @@ var re = regexp.MustCompile(
 	`(}})|(\${})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
 )
 
-func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, []byte) {
-	var wrapperContentMarkerIndex = -1
-	var wrapperTailBeforeContentMarker []byte
+func processFuncs(
+	css CSS, html string, markerFuncs []*marker, isWrapper bool,
+) (component, component) {
+
+	const unblanaced = "Unbalanced Wrapper start and end points"
+	const onlyWrapperGetsContent = "Only a Wrapper component may define a '${}' content marker"
+	const onlyOneContent = "Only one wrapper content marker '${}' is allowed"
+	const wrapperMustDefineContent = "A Wrapper must define a '${}' content marker"
+	const unequalMarkersAndFuncs = "Unequal number of HTML markers and marker functions"
+
+	var markerIndexAfterContent = -1
 
 	var htmlPrefixStartIdx = 0
 	var markerIndex = 0
 	var currentWrapperNesting = 0
+	var maxWrapperNesting = 0
+
+	var c1, c2 component
 
 	// TODO: Need to verify balance of wrapper start and end points
 
@@ -76,6 +87,7 @@ func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, 
 		var matchedSub = -1
 		var subMatch string
 
+		// Discover which subgroup was matched for this match
 		for i := 2; i < len(match); i += 2 {
 			if match[i] != -1 {
 				matchedSub = i / 2
@@ -88,66 +100,90 @@ func (c *component) processFuncs(css CSS, html string, markers []*marker) (int, 
 		case 1: // Wrapper end '}}'
 			var newMarker = &marker{
 				fn:   reflect.ValueOf(nil),
-				kind: wrapperEndMarker,
+				kind: wrapperEnd,
 			}
 
-			markers = append(append(append(
-				make([]*marker, 0, len(markers)+1), markers[0:markerIndex]...), newMarker), markers[markerIndex:]...,
+			markerFuncs = append(append(append(
+				make([]*marker, 0, len(markerFuncs)+1), markerFuncs[0:markerIndex]...), newMarker), markerFuncs[markerIndex:]...,
 			)
 
 			currentWrapperNesting--
-
-		case 2: // Wrapper content '${}'
-			if wrapperContentMarkerIndex != -1 {
-				panic("Only one wrapper content marker '${}' is allowed")
+			if currentWrapperNesting < 0 {
+				panic(unblanaced)
 			}
 
-			wrapperContentMarkerIndex = markerIndex
-			wrapperTailBeforeContentMarker = []byte(html[htmlPrefixStartIdx:match[0]])
+		case 2: // Wrapper content '${}'
+			if !isWrapper {
+				panic(onlyWrapperGetsContent)
+			}
+			if markerIndexAfterContent != -1 {
+				panic(onlyOneContent)
+			}
+
+			markerIndexAfterContent = markerIndex
+
+			c1.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
 			htmlPrefixStartIdx = match[1]
 			continue
 
 		case 3: // Wrapper start '${{foo'
-			markers[markerIndex].kind = wrapperStartMarker
-			checkValid(subMatch, markers, markerIndex)
+			markerFuncs[markerIndex].kind = wrapperStartMarker
+			checkValid(subMatch, markerFuncs, markerIndex)
 
 			currentWrapperNesting++
 
-			if currentWrapperNesting > c.maxWrapperNesting {
-				c.maxWrapperNesting = currentWrapperNesting
+			if currentWrapperNesting > maxWrapperNesting {
+				maxWrapperNesting = currentWrapperNesting
 			}
 
 		case 4: // Placeholder '${bar}'
-			checkValid(subMatch, markers, markerIndex)
+			checkValid(subMatch, markerFuncs, markerIndex)
 
 		default:
 			panic("unreachable")
 		}
 
-		markers[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
+		markerFuncs[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
 		htmlPrefixStartIdx = match[1]
 		markerIndex++
 	}
 
-	c.htmlTail = []byte(html[htmlPrefixStartIdx:])
-
 	if currentWrapperNesting != 0 {
-		panic("Unbalanced Wrapper start and end points")
+		panic(unblanaced)
 	}
 
-	if markerIndex != len(markers) {
-		panic("There must be an equal number of HTML markers and marker functions")
+	if markerIndex != len(markerFuncs) {
+		panic(unequalMarkersAndFuncs)
+	}
+
+	if isWrapper && markerIndexAfterContent == -1 {
+		panic(wrapperMustDefineContent)
 	}
 
 	// Align memory of markers slice
-	var aligned = make([]marker, len(markers), len(markers))
-	c.markers = make([]*marker, len(markers), len(markers))
-	for i, m := range markers {
+	var aligned = make([]marker, len(markerFuncs), len(markerFuncs))
+	c1.markers = make([]*marker, len(markerFuncs), len(markerFuncs))
+	for i, m := range markerFuncs {
 		aligned[i] = *m
-		c.markers[i] = &aligned[i]
+		c1.markers[i] = &aligned[i]
 	}
 
-	return wrapperContentMarkerIndex, wrapperTailBeforeContentMarker
+	if !isWrapper {
+		c1.htmlTail = []byte(html[htmlPrefixStartIdx:])
+		c1.maxWrapperNesting = maxWrapperNesting
+		return c1, c2 // c2 is ignored by the caller
+	}
+
+	return component{
+			markers:           c1.markers[0:markerIndexAfterContent],
+			htmlTail:          c1.htmlTail,
+			maxWrapperNesting: maxWrapperNesting,
+		},
+		component{
+			markers:           c1.markers[markerIndexAfterContent:],
+			htmlTail:          []byte(html[htmlPrefixStartIdx:]),
+			maxWrapperNesting: maxWrapperNesting,
+		}
 }
 
 func min(a, b int) int {
