@@ -46,9 +46,9 @@ func toInternalMarkers(markers []Marker) []*marker {
 	for i, m := range markers {
 		res[i] = &marker{
 			name:       m.Name,
-			fn:         reflect.ValueOf(m.Func), // TODO: I think we could partly convert this into a function
+			fn:         reflect.ValueOf(m.Func),
 			htmlPrefix: nil,
-			kind:       plainMarker,
+			kind:       0,
 		}
 	}
 
@@ -137,6 +137,7 @@ func processFuncs(
 			}
 
 		case 4: // Placeholder '${bar}'
+			markerFuncs[markerIndex].kind = plainMarker
 			checkValid(subMatch, markerFuncs, markerIndex)
 
 		default:
