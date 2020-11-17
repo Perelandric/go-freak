@@ -157,45 +157,6 @@ func getContext(htm []byte) *html.Node {
 	}
 }
 
-func isEmptyElement(name atom.Atom) bool {
-	switch name {
-	// HTML4
-	case atom.Area,
-		atom.Base,
-		atom.Basefont, // obsolete
-		atom.Br,
-		atom.Col,
-		atom.Command, // obsolete
-		atom.Embed,
-		atom.Hr,
-		atom.Img,
-		atom.Input,
-		atom.Isindex, // obsolete
-		atom.Keygen,  // obsolete
-		atom.Link,
-		atom.Meta,
-		atom.Param,
-
-		// HTML5
-		atom.Source,
-		atom.Track,
-		atom.Wbr:
-		return true
-
-	default:
-		return false
-	}
-}
-
-func canCompressElem(a atom.Atom) bool {
-	switch a {
-	case atom.Pre, atom.Script, atom.Style:
-		return false
-	default:
-		return true
-	}
-}
-
 func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 	if flags&HTMLStartTags == 0 || len(n.Attr) != 0 {
 		return false
@@ -209,10 +170,8 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 
 	case atom.Head:
 		// A HEAD element's start tag may be omitted if the element is empty, or
-		// if the first thing inside the HEAD element is an element.
-		var firstChild = compressedNode(n.FirstChild, flags)
-
-		return firstChild == nil || firstChild.Type == html.ElementNode
+		// if the first thing inside the
+		return n.FirstChild == nil || n.FirstChild.Type == html.ElementNode
 
 	case atom.Body:
 		// A body element's start tag may be omitted if the element is empty, or
@@ -245,59 +204,6 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 	}
 }
 
-func isTextWithData(n *html.Node) bool {
-	return n != nil && n.Type == html.TextNode && len(n.Data) != 0
-}
-
-func firstCharIsSpace(n *html.Node) bool {
-	return isTextWithData(n) && reSpaces.MatchString(n.Data[0:1])
-}
-
-func lastCharIsSpace(n *html.Node) bool {
-	return isTextWithData(n) && reSpaces.MatchString(n.Data[len(n.Data)-1:])
-}
-
-func isOneOf(n *html.Node, atoms ...atom.Atom) bool {
-	if n == nil {
-		return false
-	}
-	for _, a := range atoms {
-		if n.DataAtom == a {
-			return true
-		}
-	}
-	return false
-}
-
-func compressedNode(n *html.Node, flags HTMLCompressFlag) *html.Node {
-	var removeComments = flags&HTMLComments == HTMLComments
-	var compressSpace = flags&HTMLWhitespace == HTMLWhitespace
-
-	if !removeComments && !compressSpace {
-		return n
-	}
-
-	for {
-		if n == nil {
-			return n
-		}
-
-		if removeComments && n.Type == html.CommentNode {
-			n = n.NextSibling
-			continue // Comment nodes will get compressed away
-		}
-
-		if compressSpace && n.Type == html.TextNode {
-			var trimmed = strings.TrimSpace(n.Data)
-			if len(trimmed) == 0 {
-				n = n.NextSibling
-				continue // Whitespace-only text nodes will get compressed away
-			}
-		}
-		return n
-	}
-}
-
 func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 	if flags&HTMLEndTags == 0 {
 		return false
@@ -307,7 +213,7 @@ func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
 		return true // elements that don't allow children never get the closer
 	}
 
-	var next = compressedNode(n.NextSibling, flags)
+	var next = n.NextSibling
 
 	switch n.DataAtom {
 	case atom.Html:
@@ -619,4 +525,67 @@ func sortAttrs(attrs []html.Attribute) []html.Attribute {
 	})
 
 	return attrs
+}
+
+func isTextWithData(n *html.Node) bool {
+	return n != nil && n.Type == html.TextNode && len(n.Data) != 0
+}
+
+func firstCharIsSpace(n *html.Node) bool {
+	return isTextWithData(n) && reSpaces.MatchString(n.Data[0:1])
+}
+
+func lastCharIsSpace(n *html.Node) bool {
+	return isTextWithData(n) && reSpaces.MatchString(n.Data[len(n.Data)-1:])
+}
+
+func isOneOf(n *html.Node, atoms ...atom.Atom) bool {
+	if n == nil {
+		return false
+	}
+	for _, a := range atoms {
+		if n.DataAtom == a {
+			return true
+		}
+	}
+	return false
+}
+
+func canCompressElem(a atom.Atom) bool {
+	switch a {
+	case atom.Pre, atom.Script, atom.Style:
+		return false
+	default:
+		return true
+	}
+}
+
+func isEmptyElement(name atom.Atom) bool {
+	switch name {
+	// HTML4
+	case atom.Area,
+		atom.Base,
+		atom.Basefont, // obsolete
+		atom.Br,
+		atom.Col,
+		atom.Command, // obsolete
+		atom.Embed,
+		atom.Hr,
+		atom.Img,
+		atom.Input,
+		atom.Isindex, // obsolete
+		atom.Keygen,  // obsolete
+		atom.Link,
+		atom.Meta,
+		atom.Param,
+
+		// HTML5
+		atom.Source,
+		atom.Track,
+		atom.Wbr:
+		return true
+
+	default:
+		return false
+	}
 }
