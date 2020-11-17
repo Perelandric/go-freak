@@ -56,7 +56,7 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 
 	// If comments are to be removed, we do it first so that newly adjacent text
 	// nodes can be joined together, making space removal more accurante
-	if flags&HTMLComments == HTMLComments {
+	if flags&HTMLComments != 0 {
 		for _, n := range nodes {
 			removeComments(n)
 		}
