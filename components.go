@@ -79,6 +79,10 @@ func (c *component) do(r *Response, dataI interface{}) {
 		case wrapperStartMarker:
 			endStackIndex++
 
+			if endStackIndex >= len(wrapperEndStack) {
+				panic("unreachable")
+			}
+
 			var funcSlice = wrapperEndStack[endStackIndex]
 			r.wrapperEndingFuncs = funcSlice[0:0:cap(funcSlice)]
 
@@ -93,7 +97,11 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 			r.wrapperEndingFuncs = nil
 
-		case wrapperEndMarker:
+		case wrapperEnd:
+			if len(wrapperEndStack) == 0 {
+				panic("unreachable")
+			}
+
 			var funcSlice = wrapperEndStack[endStackIndex]
 
 			for i := len(funcSlice) - 1; i != -1 && !r.halt; i-- {
@@ -114,7 +122,7 @@ func (c *component) do(r *Response, dataI interface{}) {
 	}
 
 	if endStackIndex != -1 {
-		// TODO: Internal error?
+		panic("unreachable")
 	}
 
 	r.buf = append(r.buf, c.htmlTail...)
