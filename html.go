@@ -502,7 +502,7 @@ func compressWhitespace(n *html.Node, isExtreme bool) {
 
 		if isExtreme && len(strings.TrimSpace(currNode.Data)) == 0 {
 			// "extreme" whitespace compression removes whitespace-only text nodes
-			_, currNode = removeNode(currNode)
+			//	_, currNode = removeNode(currNode)
 
 		} else {
 			currNode.Data = reSpaces.ReplaceAllString(currNode.Data, " ")
