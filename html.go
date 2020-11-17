@@ -469,9 +469,6 @@ func joinNextAdjacentTextNode(tn *html.Node) (*html.Node, *html.Node) {
 }
 
 func removeComments(n *html.Node) {
-	if n == nil {
-		return
-	}
 	currNode := n
 
 	for currNode != nil {
@@ -496,9 +493,6 @@ func removeComments(n *html.Node) {
 var reSpaces = regexp.MustCompile(`\s+`)
 
 func compressWhitespace(n *html.Node, isExtreme bool) {
-	if n == nil {
-		return
-	}
 	currNode := n
 
 	for currNode != nil {
