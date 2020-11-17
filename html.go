@@ -45,11 +45,21 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 
 	if ctxNode == nil { // We're at the top of a page
 		node, err = html.Parse(strings.NewReader(markupStr))
-		nodes = []*html.Node{node}
 
 	} else {
 		nodes, err = html.ParseFragment(strings.NewReader(string(markup)), ctxNode)
+
+		// ParseFragment does not join as siblings, so join them
+		var prev *html.Node
+		for _, n := range nodes {
+			if prev != nil {
+				n.PrevSibling = prev
+				prev.NextSibling = n
+			}
+			prev = n
+		}
 	}
+
 	if err != nil {
 		panic(err)
 	}
@@ -57,22 +67,16 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 	// If comments are to be removed, we do it first so that newly adjacent text
 	// nodes can be joined together, making space removal more accurante
 	if flags&HTMLComments != 0 {
-		for _, n := range nodes {
-			removeComments(n)
-		}
+		removeComments(node)
 	}
 
 	// If whitespace is to be compressed, we do it first since it may impact tag omission
 	if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 {
-		for _, n := range nodes {
-			compressWhitespace(n, flags&HTMLWhitespaceExtreme != 0)
-		}
+		compressWhitespace(node, flags&HTMLWhitespaceExtreme != 0)
 	}
 
 	var buf strings.Builder
-	for _, n := range nodes {
-		render(n, &buf, flags)
-	}
+	render(node, &buf, flags)
 
 	return buf.String()
 }
