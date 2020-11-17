@@ -52,7 +52,9 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 		// ParseFragment does not join as siblings, so join them
 		var prev *html.Node
 		for _, n := range nodes {
-			if prev != nil {
+			if prev == nil {
+				node = n
+			} else {
 				n.PrevSibling = prev
 				prev.NextSibling = n
 			}
