@@ -408,10 +408,13 @@ func compressWhitespace(n *html.Node, isExtreme bool) {
 	currNode := n
 
 	for currNode != nil {
-		if currNode.Type != html.TextNode {
-			compressWhitespace(currNode.FirstChild, isExtreme)
-			currNode = currNode.NextSibling
 
+		if currNode.Type != html.TextNode {
+			if canCompressElem(currNode.DataAtom) {
+				compressWhitespace(currNode.FirstChild, isExtreme)
+			}
+
+			currNode = currNode.NextSibling
 			continue
 		}
 
