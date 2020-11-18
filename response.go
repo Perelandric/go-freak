@@ -84,7 +84,7 @@ func (wr *WrapperResponse) LoadWrapper(w *wrapper, dataI interface{}) {
 	})
 }
 
-func (wr *WrapperResponse) Skip() {
+func (wr *WrapperResponse) SkipContent() {
 	wr.r.skipping = true
 }
 
