@@ -69,17 +69,19 @@ type WrapperResponse struct {
 }
 
 func (wr *WrapperResponse) DWrapper(w *wrapper, dataI interface{}) {
-	if w == nil || wr.r.halt {
+	var r = wr.r
+
+	if w == nil || r.halt {
 		return
 	}
 
 	// Originally provided by the calling component
-	var temp = wr.r.wrapperEndingFuncs
-	wr.r.wrapperEndingFuncs = nil
+	var temp = r.wrapperEndingFuncs
+	r.wrapperEndingFuncs = nil
 
-	wr.r.do(&w.preContent, dataI)
+	r.do(&w.preContent, dataI)
 
-	wr.r.wrapperEndingFuncs = append(temp, func(r *Response) {
+	r.wrapperEndingFuncs = append(temp, func(r *Response) {
 		r.do(&w.postContent, dataI)
 	})
 }
