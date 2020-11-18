@@ -20,14 +20,14 @@ const (
 	compressWhitespace
 	compressWhitespaceExtreme
 
-	CompressNone       = HTMLCompressFlag(0)
-	CompressModerate   = compressComments | compressWhitespace
-	CompressAggressive = CompressModerate | compressEndTags
-	CompressExtreme    = CompressAggressive | compressStartTags | compressWhitespaceExtreme
+	None       = HTMLCompressFlag(0)
+	Moderate   = compressComments | compressWhitespace
+	Aggressive = Moderate | compressEndTags
+	Extreme    = Aggressive | compressStartTags | compressWhitespaceExtreme
 )
 
 func compressHTML(flags HTMLCompressFlag, markup HTML) string {
-	if flags == CompressNone {
+	if flags == None {
 		return string(markup)
 	}
 
