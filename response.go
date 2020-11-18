@@ -24,26 +24,6 @@ type Response struct {
 	halt     bool
 }
 
-// TODO: Seems like ServeHTTP should not be 'component' because then
-// 			end users could invoke it.
-func (c *component) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var resp = Response{
-		req:  r,
-		resp: w,
-		buf:  make([]byte, 0, 512),
-	}
-
-	resp.thisAsValue = reflect.ValueOf(&resp)
-
-	resp.do(c, &RouteData{})
-
-	if resp.halt {
-		return
-	}
-
-	w.Write(resp.buf)
-}
-
 func (r *Response) WriteBytes(b []byte) {
 	r.buf = append(r.buf, escapeHTMLBytes(b)...)
 }
