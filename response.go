@@ -60,7 +60,7 @@ func (r *Response) WriteBytesNoEscape(b []byte) {
 	r.buf = append(r.buf, b...)
 }
 
-func (r *Response) Doomponent(c *component, dataI interface{}) {
+func (r *Response) DoComponent(c *component, dataI interface{}) {
 	r.do(c, dataI)
 }
 
@@ -68,7 +68,7 @@ type WrapperResponse struct {
 	r *Response
 }
 
-func (wr *WrapperResponse) DWrapper(w *wrapper, dataI interface{}) {
+func (wr *WrapperResponse) DoWrapper(w *wrapper, dataI interface{}) {
 	var r = wr.r
 
 	if w == nil || r.halt {
