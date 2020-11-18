@@ -53,6 +53,7 @@ func (cs *componentServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp.do((*component)(cs), &RouteData{})
 
 	if resp.halt {
+		// TODO: Need to actually be handling HTTP error types
 		return
 	}
 
