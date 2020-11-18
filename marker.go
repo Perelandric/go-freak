@@ -34,10 +34,11 @@ const (
 )
 
 type marker struct {
-	name       string
-	fn         reflect.Value // func(r *freak.Response, d *exampleWrapperData)
-	htmlPrefix []byte
-	kind       markerKind
+	name            string
+	fn              reflect.Value // func(r *freak.Response, d *exampleWrapperData)
+	htmlPrefix      []byte
+	wrapperEndIndex uint16
+	kind            markerKind
 }
 
 func toInternalMarkers(markers []Marker) []*marker {
@@ -112,6 +113,8 @@ func processFuncs(
 				panic(unblanaced)
 			}
 
+			giveEndIndexToMarkerStart(markerIndex, markerFuncs)
+
 		case 2: // Wrapper content '${}'
 			if !isWrapper {
 				panic(onlyWrapperGetsContent)
@@ -185,6 +188,24 @@ func processFuncs(
 			htmlTail:          []byte(html[htmlPrefixStartIdx:]),
 			maxWrapperNesting: maxWrapperNesting,
 		}
+}
+
+func giveEndIndexToMarkerStart(index int, markers []*marker) {
+	for i := index - 1; i != -1; i-- {
+		if markers[i].kind != wrapperStartMarker {
+			continue
+		}
+
+		if markers[i].wrapperEndIndex != 0 {
+			continue // Was the start of an earlier marker ending
+		}
+
+		markers[i].wrapperEndIndex = uint16(index)
+		return
+	}
+
+	// The paired start should be found before the loop ends`
+	panic("unreachable")
 }
 
 func min(a, b int) int {

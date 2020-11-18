@@ -52,12 +52,17 @@ func (c *component) do(r *Response, dataI interface{}) {
 		defer returnWrapEndingSliceStack(wrapperEndStack)
 	}
 
-	for _, m := range c.markers {
+	for i := 0; i < len(c.markers); i++ {
+		var m = c.markers[i]
+
 		r.buf = append(r.buf, m.htmlPrefix...)
 
 		switch m.kind {
 		case plainMarker:
 			m.fn.Call(callArgs[:])
+			if r.halt {
+				return
+			}
 
 		case wrapperStartMarker:
 			endStackIndex++
@@ -80,6 +85,17 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 			r.wrapperEndingFuncs = nil
 
+			if !r.skipping {
+				continue
+			}
+			r.skipping = false // reset
+
+			// We're skipping to the ending, so set `i` and `m`, and fallthrough so
+			// that we're not writing the htmlPrefix, since it's part of the content
+			i = int(m.wrapperEndIndex)
+			m = c.markers[i]
+			fallthrough
+
 		case wrapperEnd:
 			if len(wrapperEndStack) == 0 {
 				panic("unreachable")
@@ -89,18 +105,15 @@ func (c *component) do(r *Response, dataI interface{}) {
 
 			for i := len(funcSlice) - 1; i != -1 && !r.halt; i-- {
 				funcSlice[i](r)
+				if r.halt {
+					return
+				}
 			}
 
 			endStackIndex--
 
-			continue
-
 		default:
 			panic("unreachable")
-		}
-
-		if r.halt {
-			return
 		}
 	}
 

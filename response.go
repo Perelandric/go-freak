@@ -18,9 +18,10 @@ type Response struct {
 	// It holds a circular reference to itself.
 	thisAsValue reflect.Value
 
-	halt bool
-
 	buf []byte
+
+	skipping bool
+	halt     bool
 }
 
 func (c *component) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +67,7 @@ type WrapperResponse struct {
 }
 
 func (wr *WrapperResponse) LoadWrapper(w *wrapper, dataI interface{}) {
-	if w == nil {
+	if w == nil || wr.r.halt {
 		return
 	}
 
@@ -79,4 +80,8 @@ func (wr *WrapperResponse) LoadWrapper(w *wrapper, dataI interface{}) {
 	wr.r.wrapperEndingFuncs = append(temp, func(r *Response) {
 		w.postContent.do(r, dataI)
 	})
+}
+
+func (wr *WrapperResponse) Skip() {
+	wr.r.skipping = true
 }
