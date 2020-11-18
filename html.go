@@ -14,25 +14,20 @@ import (
 type HTMLCompressFlag uint8
 
 const (
-	HTMLComments = HTMLCompressFlag(1 << iota)
-	HTMLEndTags
-	HTMLStartTags
-	HTMLWhitespace
-	HTMLWhitespaceExtreme
+	compressComments = HTMLCompressFlag(1 << iota)
+	compressEndTags
+	compressStartTags
+	compressWhitespace
+	compressWhitespaceExtreme
 
-	HTMLCompressNone = HTMLCompressFlag(0)
-	HTMLCompress     = HTMLCompressFlag(
-		HTMLComments | HTMLEndTags | HTMLStartTags |
-			HTMLWhitespace,
-	)
-	HTMLCompressExtreme = HTMLCompressFlag(
-		HTMLComments | HTMLEndTags | HTMLStartTags |
-			HTMLWhitespace | HTMLWhitespaceExtreme,
-	)
+	CompressNone       = HTMLCompressFlag(0)
+	CompressModerate   = compressComments | compressWhitespace
+	CompressAggressive = CompressModerate | compressEndTags
+	CompressExtreme    = CompressAggressive | compressStartTags | compressWhitespaceExtreme
 )
 
 func compressHTML(flags HTMLCompressFlag, markup HTML) string {
-	if flags == HTMLCompressNone {
+	if flags == CompressNone {
 		return string(markup)
 	}
 
@@ -68,13 +63,13 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 
 	// If comments are to be removed, we do it first so that newly adjacent text
 	// nodes can be joined together, making space removal more accurante
-	if flags&HTMLComments != 0 {
+	if flags&compressComments != 0 {
 		removeComments(node)
 	}
 
 	// If whitespace is to be compressed, we do it first since it may impact tag omission
-	if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 {
-		compressWhitespace(node, flags&HTMLWhitespaceExtreme != 0)
+	if flags&(compressWhitespace|compressWhitespaceExtreme) != 0 {
+		compressSpace(node, flags&compressWhitespaceExtreme != 0)
 	}
 
 	var buf strings.Builder
@@ -158,7 +153,7 @@ func getContext(htm []byte) *html.Node {
 }
 
 func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
-	if flags&HTMLStartTags == 0 || len(n.Attr) != 0 {
+	if flags&compressStartTags == 0 || len(n.Attr) != 0 {
 		return false
 	}
 
@@ -205,7 +200,7 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 }
 
 func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
-	if flags&HTMLEndTags == 0 {
+	if flags&compressEndTags == 0 {
 		return false
 	}
 
@@ -404,14 +399,14 @@ func removeComments(n *html.Node) {
 
 var reSpaces = regexp.MustCompile(`\s+`)
 
-func compressWhitespace(n *html.Node, isExtreme bool) {
+func compressSpace(n *html.Node, isExtreme bool) {
 	currNode := n
 
 	for currNode != nil {
 
 		if currNode.Type != html.TextNode {
 			if canCompressElem(currNode.DataAtom) {
-				compressWhitespace(currNode.FirstChild, isExtreme)
+				compressSpace(currNode.FirstChild, isExtreme)
 			}
 
 			currNode = currNode.NextSibling
@@ -445,7 +440,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 			return
 
 		case html.ElementNode:
-			if flags&HTMLStartTags != 0 && canElideOpener(currNode, flags) {
+			if flags&compressStartTags != 0 && canElideOpener(currNode, flags) {
 
 				// If whitespace compression is enabled and
 				// 	the previous sibling ends in space, and
@@ -453,7 +448,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				//	eliminate the leading space in the first child node (since
 				//	the previous sibling has already been rendered)
 
-				if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 &&
+				if flags&(compressWhitespace|compressWhitespaceExtreme) != 0 &&
 					lastCharIsSpace(currNode.PrevSibling) &&
 					firstCharIsSpace(currNode.FirstChild) {
 					currNode.FirstChild.Data = currNode.FirstChild.Data[1:]
@@ -468,7 +463,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteString(currNode.Data)
 
 				for i, attr := range sortAttrs(currNode.Attr) {
-					if i == 0 || flags&HTMLWhitespaceExtreme == 0 {
+					if i == 0 || flags&compressWhitespaceExtreme == 0 {
 						buf.WriteByte(' ')
 					}
 					buf.WriteString(attr.Key)
@@ -485,7 +480,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 
 			render(currNode.FirstChild, buf, flags)
 
-			if flags&HTMLEndTags != 0 && canElideCloser(currNode, flags) {
+			if flags&compressEndTags != 0 && canElideCloser(currNode, flags) {
 
 				// If whitespace compression is enabled and
 				// 	the last child of current element ends in space, and
@@ -493,7 +488,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				//	eliminate the leading space in the next node (since the
 				//	last child has already been rendered)
 
-				if flags&(HTMLWhitespace|HTMLWhitespaceExtreme) != 0 &&
+				if flags&(compressWhitespace|compressWhitespaceExtreme) != 0 &&
 					lastCharIsSpace(currNode.LastChild) &&
 					firstCharIsSpace(currNode.NextSibling) {
 					currNode.NextSibling.Data = currNode.NextSibling.Data[1:]
