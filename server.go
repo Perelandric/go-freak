@@ -175,6 +175,11 @@ var rootRoute *freakHandler
 func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	var urlPath = req.URL.Path
 
+	if urlPath == "/" {
+		s.serve(resp, req, urlPath, -1, rootRoute, false)
+		return
+	}
+
 	// TODO: I think I should have a separate server for resources
 
 	// Check for static resource request
@@ -187,21 +192,21 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	urlPath = cleanPath(urlPath)
+	urlPath, insecure := cleanPath(urlPath)
 	req.URL.Path = urlPath
 
-	if urlPath == "/" {
+	if insecure { // Path was a potential security issue
 		s.serve(resp, req, urlPath, -1, rootRoute, false)
 		return
 	}
 
-	sh := s.routes[urlPath]
+	fh := s.routes[urlPath]
 
-	if sh != nil {
-		if len(sh.staticFilePath) != 0 {
-			http.ServeFile(resp, req, filepath.Join(s.binaryPath, sh.staticFilePath))
+	if fh != nil {
+		if len(fh.staticFilePath) != 0 {
+			http.ServeFile(resp, req, filepath.Join(s.binaryPath, fh.staticFilePath))
 		} else {
-			s.serve(resp, req, urlPath, -1, sh, false)
+			s.serve(resp, req, urlPath, -1, fh, false)
 		}
 		return
 	}
@@ -217,9 +222,9 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	var tailIdx = -1
 
 	for {
-		sh, tailIdx = s.getTailRoute(testPath)
-		if sh != nil {
-			s.serve(resp, req, urlPath, tailIdx, sh, true)
+		fh, tailIdx = s.getTailRoute(testPath)
+		if fh != nil {
+			s.serve(resp, req, urlPath, tailIdx, fh, true)
 			return
 		}
 
@@ -236,9 +241,9 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 		testPath = testPath[0:lastSlash] // shorten until (and excluding) the last '/'
 
-		sh = s.routes[testPath]
-		if sh != nil && sh.route.Catch404 {
-			s.serve(resp, req, urlPath, len(testPath), sh, false)
+		fh = s.routes[testPath]
+		if fh != nil && fh.route.Catch404 {
+			s.serve(resp, req, urlPath, len(testPath), fh, false)
 			return
 		}
 	}
@@ -363,63 +368,46 @@ func (s *server) putResponse(r *Response) {
 	}
 }
 
-func cleanPath(urlPath string) string {
-	if len(urlPath) < 2 || urlPath[0] != '/' {
-		return "/"
+func cleanPath(urlPath string) (string, bool) {
+	// Any path not starting with `/` goes to home page
+	if len(urlPath) == 0 || urlPath[0] != '/' {
+		return "/", true
 	}
 
-	var start = 1
-	for start < len(urlPath) && urlPath[start] == '/' {
-		start++
-	}
-
-	// TODO: If last byte is not '/', should I add it?
-	var end = len(urlPath) - 1
-	for urlPath[end] == '/' && end > start {
-		end--
-	}
-
-	urlPath = urlPath[start-1 : end+1]
-
-	var b []byte
+	var start = 0
 	var idx = 1
+	var b []byte
 
 	for idx < len(urlPath) {
-
-		// TODO: Why am I returning ERROR in this case?
+		// At first character after a slash
 		if urlPath[idx] == '.' {
-			return "ERROR"
+			return "/", true
 		}
 
-		if urlPath[idx] == '/' {
-			idx++
+		var temp = idx
+		for urlPath[idx] == '/' {
+			if idx++; idx == len(urlPath) {
+				return string(b), false
+			}
+		}
 
-			if b == nil {
+		if temp != idx {
+			if b == nil { // TODO: Get from pool
 				b = make([]byte, 0, len(urlPath))
 			}
-			b = append(b, urlPath[0:idx]...)
-
-			for idx < len(urlPath) && urlPath[idx] == '/' {
-				idx++
-			}
-
-			urlPath = urlPath[idx:]
-			idx = 0
-
-			if urlPath[idx] == '.' {
-				return "ERROR"
-			}
+			b = append(b, urlPath[start:temp-1]...)
+			start = idx - 1
 		}
 
 		var newIdx = strings.IndexByte(urlPath[idx:], '/')
 		if newIdx == -1 {
 			break
 		}
-		idx += newIdx
+		idx += newIdx + 1
 	}
 
 	if b == nil {
-		return urlPath
+		return urlPath, false
 	}
-	return string(append(b, urlPath...))
+	return string(append(b, urlPath[start:]...)), false
 }
