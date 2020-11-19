@@ -364,14 +364,8 @@ func (s *server) putResponse(r *Response) {
 }
 
 func cleanPath(urlPath string) string {
-	if len(urlPath) == 0 {
+	if len(urlPath) < 2 || urlPath[0] != '/' {
 		return "/"
-	}
-	if urlPath[0] != '/' {
-		return "ERROR"
-	}
-	if len(urlPath) == 1 {
-		return urlPath
 	}
 
 	var start = 1
