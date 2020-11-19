@@ -23,7 +23,7 @@ type Route struct {
 
 type Server server
 
-func (s *server) SetRoutes(routes ...Route) error {
+func (s *Server) SetRoutes(routes ...Route) error {
 	return (*server)(s).setRoutes(routes...)
 }
 
