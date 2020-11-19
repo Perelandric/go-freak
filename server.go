@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -20,7 +21,7 @@ type Route struct {
 	Description string
 }
 
-func NewServer(host string, port uint16, compressionLevel int) *server {
+func NewServer(host string, port uint16, compressionLevel int) (*server, error) {
 	const invalid = "%d is an invalid %s. Using %d instead.\n"
 
 	var s = server{
@@ -28,6 +29,13 @@ func NewServer(host string, port uint16, compressionLevel int) *server {
 		port:             strconv.Itoa(int(port)),
 		routes:           map[string]*freakHandler{},
 		compressionLevel: compressionLevel,
+	}
+
+	var err error
+
+	s.binaryPath, err = filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO: Redo comporession levels
@@ -40,7 +48,7 @@ func NewServer(host string, port uint16, compressionLevel int) *server {
 		s.compressionLevel = 9
 	}
 
-	return &s
+	return &s, nil
 }
 
 type server struct {
@@ -49,7 +57,8 @@ type server struct {
 	routes map[string]*freakHandler
 
 	tailRoutesMux sync.RWMutex
-	tailRoutes    map[string]*freakHandler
+
+	tailRoutes map[string]*freakHandler
 
 	compressionLevel int
 	binaryPath       string // Path leading to the application binary's directory
@@ -60,44 +69,80 @@ type server struct {
 	isStarted bool
 }
 
-func (s *server) SetRoutes(routes ...Route) {
+// Avoids a map lookup
+var rootRoute *freakHandler
+
+func (s *server) SetRoutes(routes ...Route) error {
 	if s.isStarted {
-		// TODO: Log message
-		return
+		return fmt.Errorf("Server is already running")
 	}
 
 	for _, route := range routes {
 		if route.Component == nil {
-			// TODO: Log message
-			continue
+			return fmt.Errorf("A route's component must not be nil")
 		}
 
-		fmt.Printf("Adding route: %q\n", route.Path)
+		var pth = cleanPath(route.Path)
 
-		if !tailHandlersExist && route.Catch404 {
+		route.Path = pth
+
+		fmt.Printf("Adding route: %q\n", pth)
+
+		if route.Catch404 {
+			// TODO: Maybe have a separate tailRoutes map for each Route that accepts them.
+			//		Then they can handle their own periodic maintenance, like clearing.
 			tailHandlersExist = true
 		}
 
 		var sh = freakHandler{
-			route:            route,
-			staticFilePath:   "",
-			routePathNoSlash: route.Path,
+			route:          route,
+			staticFilePath: "",
 		}
 
-		if route.Path[len(route.Path)-1] == '/' {
-			sh.routePathNoSlash = route.Path[0 : len(route.Path)-1]
-		}
-
-		sh.siteMapNode = newSiteMapNode(route.Path, &sh.route)
+		sh.siteMapNode = newSiteMapNode(pth, &sh.route)
 
 		// TODO: will need scripts/css/whatever
 
-		s.routes[dropTrailingSlash(route.Path)] = &sh
+		var err = s.setRoutePaths(pth, &sh)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
+}
+
+func (s *server) setRoutePaths(pth string, fh *freakHandler) error {
+	if len(pth) == 0 {
+		pth = "/"
+		fh.route.Path = pth
+	}
+
+	if _, ok := s.routes[pth]; ok {
+		return fmt.Errorf("Path %q defined more than once", pth)
+	}
+
+	if pth == "/" {
+		s.routes[pth] = fh
+		rootRoute = fh
+		return nil
+	}
+
+	if !strings.HasSuffix(pth, "/") {
+		pth = pth + "/"
+		fh.route.Path = pth
+	}
+
+	// set the path both with and without trailing slash
+	s.routes[pth] = fh
+	s.routes[pth[0:len(pth)-1]] = fh
+
+	return nil
 }
 
 func (s *server) Start(host string, port uint16) error {
 	if s.isStarted {
+		// TODO: Log message
 		return nil
 	}
 	s.isStarted = true
@@ -106,7 +151,7 @@ func (s *server) Start(host string, port uint16) error {
 
 	// All fragments should have been initialized, so we have a master list of
 	// pointers to all the static HTML.
-	locateSubstrings()
+	locateSubstrings() // TODO: Implement this..........
 
 	fmt.Println("Working directory:", s.binaryPath)
 
@@ -114,8 +159,6 @@ func (s *server) Start(host string, port uint16) error {
 	for _, pth := range []string{"/sitemap.xml", "/favicon.ico", "/robots.txt"} {
 		s.routes[pth] = &freakHandler{staticFilePath: pth}
 	}
-
-	rootRoute = s.routes["/"]
 
 	var addr = s.host + ":" + s.port
 
@@ -128,8 +171,6 @@ type freakHandler struct {
 	route Route
 
 	siteMapNode *SiteMapNode
-
-	routePathNoSlash string // no trailing slash
 
 	staticFilePath string
 
@@ -146,7 +187,7 @@ var tailHandlersExist bool
 func (s *server) addTailRoute(sh *freakHandler, fullPth string) {
 	s.tailRoutesMux.Lock()
 
-	s.tailRoutes[dropTrailingSlash(fullPth)] = sh
+	s.tailRoutes[pathNoTrailingSlash(fullPth)] = sh
 
 	s.tailRoutesMux.Unlock()
 }
@@ -157,20 +198,17 @@ func (s *server) getTailRoute(pth string) (*freakHandler, int) {
 	s.tailRoutesMux.RUnlock()
 
 	if sh != nil {
-		return sh, len(sh.routePathNoSlash)
+		return sh, len(sh.route.Path) - 1
 	}
 	return nil, -1
 }
 
-func dropTrailingSlash(pth string) string {
+func pathNoTrailingSlash(pth string) string {
 	if len(pth) > 1 && pth[len(pth)-1] == '/' {
 		return pth[0 : len(pth)-1]
 	}
 	return pth
 }
-
-// Avoids a map lookup
-var rootRoute *freakHandler
 
 func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	var urlPath = req.URL.Path
@@ -192,15 +230,14 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	urlPath, insecure := cleanPath(urlPath)
-	req.URL.Path = urlPath
-
-	if insecure { // Path was a potential security issue
-		s.serve(resp, req, urlPath, -1, rootRoute, false)
-		return
-	}
-
 	fh := s.routes[urlPath]
+
+	if fh == nil {
+		urlPath = cleanPath(urlPath)
+		req.URL.Path = urlPath
+
+		fh = s.routes[urlPath]
+	}
 
 	if fh != nil {
 		if len(fh.staticFilePath) != 0 {
@@ -211,9 +248,11 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	const IMPLEMENT_TAIL_HANDLERS_LATER = true
+
 	// Check if the root or any of its sub-routes allow a tail that would
 	// cause the URL to not be found in routes
-	if !tailHandlersExist {
+	if IMPLEMENT_TAIL_HANDLERS_LATER || !tailHandlersExist {
 		http.NotFound(resp, req)
 		return
 	}
@@ -368,46 +407,56 @@ func (s *server) putResponse(r *Response) {
 	}
 }
 
-func cleanPath(urlPath string) (string, bool) {
+func cleanPath(urlPath string) string {
 	// Any path not starting with `/` goes to home page
-	if len(urlPath) == 0 || urlPath[0] != '/' {
-		return "/", true
+	if len(urlPath) == 0 {
+		return "/"
 	}
 
-	var start = 0
+	var prevSlashIndex = 0
 	var idx = 1
 	var b []byte
 
 	for idx < len(urlPath) {
-		// At first character after a slash
-		if urlPath[idx] == '.' {
-			return "/", true
-		}
+		// Here idx always at the character after a slash
 
-		var temp = idx
-		for urlPath[idx] == '/' {
-			if idx++; idx == len(urlPath) {
-				return string(b), false
+		{ // Skip over multiple adjacent slashes /foo///bar becomes /foo/bar
+			var temp = idx
+			for urlPath[idx] == '/' {
+				if idx++; idx == len(urlPath) {
+					if b == nil {
+						return urlPath[0:temp]
+					}
+					return string(b)
+				}
 			}
-		}
 
-		if temp != idx {
-			if b == nil { // TODO: Get from pool
-				b = make([]byte, 0, len(urlPath))
+			if temp != idx {
+				if b == nil { // TODO: Get from pool
+					b = make([]byte, 0, len(urlPath)-(idx-temp))
+				}
+				b = append(b, urlPath[prevSlashIndex:temp-1]...)
+				prevSlashIndex = idx - 1
 			}
-			b = append(b, urlPath[start:temp-1]...)
-			start = idx - 1
 		}
 
 		var newIdx = strings.IndexByte(urlPath[idx:], '/')
 		if newIdx == -1 {
+			if urlPath[len(urlPath)-1] != '/' {
+				if b != nil {
+					b = append(b, '/')
+				} else {
+					urlPath += "/"
+				}
+			}
 			break
 		}
+
 		idx += newIdx + 1
 	}
 
 	if b == nil {
-		return urlPath, false
+		return urlPath
 	}
-	return string(append(b, urlPath[start:]...)), false
+	return string(append(b, urlPath[prevSlashIndex:]...))
 }
