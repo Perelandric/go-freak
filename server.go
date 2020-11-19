@@ -21,7 +21,35 @@ type Route struct {
 	Description string
 }
 
-func NewServer(host string, port uint16, compressionLevel int) (*server, error) {
+type Server server
+
+func (s *server) SetRoutes(routes ...Route) error {
+	return (*server)(s).setRoutes(routes...)
+}
+
+func (s *Server) Start(host string, port uint16) error {
+	return (*server)(s).Start(host, port)
+}
+
+type server struct {
+	host, port string
+
+	routes map[string]*freakHandler
+
+	tailRoutesMux sync.RWMutex
+
+	tailRoutes map[string]*freakHandler
+
+	compressionLevel int
+	binaryPath       string // Path leading to the application binary's directory
+
+	js, css         bytes.Buffer // TODO: I think these will eventually be a per-root-route buffer
+	cssPath, jsPath string
+
+	isStarted bool
+}
+
+func NewServer(host string, port uint16, compressionLevel int) (*Server, error) {
 	const invalid = "%d is an invalid %s. Using %d instead.\n"
 
 	var s = server{
@@ -48,31 +76,13 @@ func NewServer(host string, port uint16, compressionLevel int) (*server, error) 
 		s.compressionLevel = 9
 	}
 
-	return &s, nil
-}
-
-type server struct {
-	host, port string
-
-	routes map[string]*freakHandler
-
-	tailRoutesMux sync.RWMutex
-
-	tailRoutes map[string]*freakHandler
-
-	compressionLevel int
-	binaryPath       string // Path leading to the application binary's directory
-
-	js, css         bytes.Buffer // TODO: I think these will eventually be a per-root-route buffer
-	cssPath, jsPath string
-
-	isStarted bool
+	return (*Server)(&s), nil
 }
 
 // Avoids a map lookup
 var rootRoute *freakHandler
 
-func (s *server) SetRoutes(routes ...Route) error {
+func (s *server) setRoutes(routes ...Route) error {
 	if s.isStarted {
 		return fmt.Errorf("Server is already running")
 	}
