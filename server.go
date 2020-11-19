@@ -31,6 +31,10 @@ func (s *Server) Start(host string, port uint16) error {
 	return (*server)(s).Start(host, port)
 }
 
+func NewServer(host string, port uint16, compressionLevel int) (*Server, error) {
+	return newServer(host, port, compressionLevel)
+}
+
 type server struct {
 	host, port string
 
@@ -49,7 +53,7 @@ type server struct {
 	isStarted bool
 }
 
-func NewServer(host string, port uint16, compressionLevel int) (*Server, error) {
+func newServer(host string, port uint16, compressionLevel int) (*Server, error) {
 	const invalid = "%d is an invalid %s. Using %d instead.\n"
 
 	var s = server{
