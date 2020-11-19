@@ -1,8 +1,40 @@
 package freak
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"net/http"
 	"reflect"
+)
+
+type state struct {
+	flags stateFlag
+}
+type stateFlag uint16
+
+func (s *state) set(flags stateFlag) {
+	s.flags |= flags
+}
+func (s *state) unset(flags stateFlag) {
+	s.flags &^= flags
+}
+func (s state) has(flags stateFlag) bool {
+	return s.flags&flags == flags
+}
+func (s state) hasAny(flags stateFlag) bool {
+	return s.flags&flags != 0
+}
+
+const (
+	// TODO: Review these flags`
+	sent = 1 << stateFlag(iota)
+	acceptsGzip
+	cacheTail
+	skipElement
+	skipContent
+	allStatic
+	allSkip
 )
 
 type RouteData struct {
@@ -18,26 +50,50 @@ type Response struct {
 	// It holds a circular reference to itself.
 	thisAsValue reflect.Value
 
-	buf []byte
+	halt bool
 
-	skipping bool
-	halt     bool
+	// vvv--- from "smash"
+
+	cookiesToSend []*http.Cookie
+
+	state state
+
+	gzip gzip.Writer
+
+	// Unable to write directly to the ResponseWriter (or via gzip) because
+	// that cause WriteHeader to take place with StatusOK, which means we can
+	// no longer redirect.
+	// So instead we must write to a bytes.Buffer.
+	buf bytes.Buffer
+
+	writer io.Writer
+
+	siteMapNode *SiteMapNode // for the requested page
+}
+
+func newResponse(compressionLevel, bufMaxSize int) *Response {
+	gz, _ := gzip.NewWriterLevel(nil, compressionLevel)
+
+	return &Response{
+		gzip: *gz,
+		buf:  *bytes.NewBuffer(make([]byte, 0, bufMaxSize)),
+	}
 }
 
 func (r *Response) WriteBytes(b []byte) {
-	r.buf = append(r.buf, escapeHTMLBytes(b)...)
+	writeEscapeHTMLBytes(&r.buf, b)
 }
 
 func (r *Response) WriteString(s string) {
-	r.buf = append(r.buf, escapeHTMLString(s)...)
+	writeEscapeHTMLString(&r.buf, s)
 }
 
 func (r *Response) WriteStringNoEscape(s string) {
-	r.buf = append(r.buf, s...)
+	r.buf.WriteString(s)
 }
 
 func (r *Response) WriteBytesNoEscape(b []byte) {
-	r.buf = append(r.buf, b...)
+	r.buf.Write(b)
 }
 
 func (r *Response) DoComponent(c *component, dataI interface{}) {
@@ -67,7 +123,7 @@ func (wr *WrapperResponse) DoWrapper(w *wrapper, dataI interface{}) {
 }
 
 func (wr *WrapperResponse) SkipContent() {
-	wr.r.skipping = true
+	wr.r.state.set(skipContent)
 }
 
 func (r *Response) do(c *component, dataI interface{}) {
@@ -88,7 +144,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 	for i := 0; i < len(c.markers); i++ {
 		var m = c.markers[i]
 
-		r.buf = append(r.buf, m.htmlPrefix...)
+		r.buf.Write(m.htmlPrefix)
 
 		switch m.kind {
 		case plainMarker:
@@ -118,10 +174,11 @@ func (r *Response) do(c *component, dataI interface{}) {
 
 			r.wrapperEndingFuncs = nil
 
-			if !r.skipping {
+			if !r.state.has(skipContent) {
 				continue
 			}
-			r.skipping = false // reset
+
+			r.state.unset(skipContent)
 
 			// We're skipping to the ending, so set `i` and `m`, and fallthrough so
 			// that we're not writing the htmlPrefix, since it's part of the content
@@ -154,5 +211,5 @@ func (r *Response) do(c *component, dataI interface{}) {
 		panic("unreachable")
 	}
 
-	r.buf = append(r.buf, c.htmlTail...)
+	r.buf.Write(c.htmlTail)
 }
