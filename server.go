@@ -372,6 +372,9 @@ func (s *server) getResponse(
 		r = newResponse(s.compressionLevel, _bufMaxSize)
 	}
 
+	r.req = req
+	r.resp = resp
+
 	if doGzip {
 		r.state.set(acceptsGzip)
 
@@ -411,6 +414,7 @@ func (s *server) putResponse(r *Response) {
 	r.resp = nil
 	r.req = nil
 	r.state = state{}
+	r.halt = false
 
 	if _poolEnabled {
 		select {
