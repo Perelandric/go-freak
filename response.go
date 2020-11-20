@@ -160,7 +160,7 @@ func putResponse(s *server, r *Response) {
 	_dnrd.buf.Reset()
 
 	if _dnrd.buf.Cap() > _bufMaxSize {
-		// Reduce underlying capacity to the given masimum
+		// Reduce underlying capacity to the given maximum
 		_dnrd.buf = *bytes.NewBuffer(_dnrd.buf.Bytes()[0:0:_bufMaxSize])
 	}
 
