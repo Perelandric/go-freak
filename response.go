@@ -42,22 +42,9 @@ type RouteData struct {
 }
 
 type Response struct {
-	resp http.ResponseWriter
-	req  *http.Request
-
-	wrapperEndingFuncs []func(*Response)
-
 	// This is for calling the provided callbacks via reflection.
 	// It holds a circular reference to itself.
 	thisAsValue reflect.Value
-
-	halt bool
-
-	// vvv--- from "smash"
-
-	cookiesToSend []*http.Cookie
-
-	state state
 
 	// The individual content writing methods are NOT to touch this struct.
 	// It is only used during initialization and teardown of a Response.
@@ -78,6 +65,17 @@ type Response struct {
 	writer io.Writer
 
 	siteMapNode *SiteMapNode // for the requested page
+
+	quickZero
+}
+
+type quickZero struct {
+	cookiesToSend      []*http.Cookie
+	wrapperEndingFuncs []func(*Response)
+	resp               http.ResponseWriter
+	req                *http.Request
+	state              state
+	halt               bool
 }
 
 const (
@@ -165,11 +163,9 @@ func putResponse(s *server, r *Response) {
 	}
 
 	// Clear data and put back into the pool.
-	r.cookiesToSend = r.cookiesToSend[0:0]
-	r.resp = nil
-	r.req = nil
-	r.state = state{}
-	r.halt = false
+	r.quickZero = quickZero{
+		cookiesToSend: r.cookiesToSend[0:0],
+	}
 
 	if _poolEnabled {
 		select {
