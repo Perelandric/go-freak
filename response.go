@@ -74,12 +74,12 @@ type Response struct {
 func newResponse(compressionLevel, bufMaxSize int) *Response {
 	gz, _ := gzip.NewWriterLevel(nil, compressionLevel)
 
-	var r = Response{
+	var r = &Response{
 		gzip: *gz,
 		buf:  *bytes.NewBuffer(make([]byte, 0, bufMaxSize)),
 	}
 	r.thisAsValue = reflect.ValueOf(r)
-	return &r
+	return r
 }
 
 func (r *Response) WriteBytes(b []byte) {
