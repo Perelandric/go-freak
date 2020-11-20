@@ -175,19 +175,19 @@ func putResponse(s *server, r *Response) {
 }
 
 func (r *Response) WriteBytes(b []byte) {
-	writeEscapeHTMLBytes(&r.buf, b)
+	writeEscapeHTMLBytes(r.writer, b)
 }
 
 func (r *Response) WriteString(s string) {
-	writeEscapeHTMLString(&r.buf, s)
+	writeEscapeHTMLString(r.writer, s)
 }
 
 func (r *Response) WriteStringNoEscape(s string) {
-	r.buf.WriteString(s)
+	r.writer.Write(strToBytes(s))
 }
 
 func (r *Response) WriteBytesNoEscape(b []byte) {
-	r.buf.Write(b)
+	r.writer.Write(b)
 }
 
 func (r *Response) DoComponent(c *component, dataI interface{}) {
