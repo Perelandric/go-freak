@@ -121,8 +121,7 @@ func (s *server) serveFile(resp http.ResponseWriter, req *http.Request, urlpath 
 		respHdrs[_contentType] = info.mime
 
 		doGzip = info.canGzip &&
-			strings.Contains(req.Header.Get(_acceptEncoding), _gzip) &&
-			!strings.Contains(req.Header.Get(_userAgent), _msie6)
+			strings.Contains(req.Header.Get(_acceptEncoding), _gzip)
 
 		// First look for a gzip version of the file, if possible
 		if doGzip {

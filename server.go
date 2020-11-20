@@ -313,8 +313,7 @@ func (s *server) serve(
 	var respHdrs = resp.Header()
 	respHdrs[_contentType] = htmlContentHeader
 
-	var doGzip = strings.Contains(req.Header.Get(_acceptEncoding), _gzip) &&
-		!strings.Contains(req.Header.Get(_userAgent), _msie6)
+	var doGzip = strings.Contains(req.Header.Get(_acceptEncoding), _gzip)
 
 	if doGzip {
 		respHdrs[_contentEncoding] = gzipHeader
