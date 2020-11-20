@@ -138,8 +138,10 @@ func putResponse(s *server, r *Response) {
 	if !r.state.has(sent) {
 		r.resp.WriteHeader(http.StatusOK)
 
-		if r.state.hasAny(acceptsGzip) {
+		if r.state.has(acceptsGzip) {
 			r.gzip.Close()
+
+			// TODO: Is this reset needed? It will only ever get the &buf from the same struct
 			r.gzip.Reset(nil)
 		}
 
