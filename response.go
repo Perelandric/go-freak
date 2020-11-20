@@ -159,7 +159,9 @@ func putResponse(s *server, r *Response) {
 	}
 
 	if r._DO_NOT_WRITE_DIRECTLY_.buf.Cap() > _bufMaxSize {
-		r._DO_NOT_WRITE_DIRECTLY_.buf = *bytes.NewBuffer(r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes()[0:0:_bufMaxSize])
+		r._DO_NOT_WRITE_DIRECTLY_.buf = *bytes.NewBuffer(
+			r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes()[0:0:_bufMaxSize],
+		)
 	} else {
 		r._DO_NOT_WRITE_DIRECTLY_.buf.Reset()
 	}
