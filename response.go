@@ -95,6 +95,9 @@ func getResponse(
 		select {
 		case r = <-respPool:
 			goto INITIALIZE
+
+		default:
+			// need default to handle an empty pool
 		}
 	}
 
@@ -157,7 +160,8 @@ func putResponse(s *server, r *Response) {
 		select {
 		case respPool <- r: // Successfully placed back into pool
 
-		default: // let overflow get GC'd
+		default:
+			// let overflow get GC'd
 		}
 	}
 }
