@@ -75,7 +75,6 @@ type quickZero struct {
 	resp               http.ResponseWriter
 	req                *http.Request
 	state              state
-	halt               bool
 }
 
 const (
@@ -204,7 +203,7 @@ type WrapperResponse struct {
 func (wr *WrapperResponse) DoWrapper(w *wrapper, dataI interface{}) {
 	var r = wr.r
 
-	if w == nil || r.halt {
+	if w == nil || r.state.has(sent) {
 		return
 	}
 
@@ -224,7 +223,7 @@ func (wr *WrapperResponse) SkipContent() {
 }
 
 func (r *Response) do(c *component, dataI interface{}) {
-	if r.halt {
+	if r.state.has(sent) {
 		return
 	}
 
@@ -246,7 +245,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 		switch m.kind {
 		case plainMarker:
 			m.fn.Call(callArgs[:])
-			if r.halt {
+			if r.state.has(sent) {
 				return
 			}
 
@@ -262,7 +261,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 
 			m.fn.Call(callArgs[:])
 
-			if r.halt {
+			if r.state.has(sent) {
 				return
 			}
 
@@ -290,9 +289,9 @@ func (r *Response) do(c *component, dataI interface{}) {
 
 			var funcSlice = wrapperEndStack[endStackIndex]
 
-			for i := len(funcSlice) - 1; i != -1 && !r.halt; i-- {
+			for i := len(funcSlice) - 1; i != -1 && !r.state.has(sent); i-- {
 				funcSlice[i](r)
-				if r.halt {
+				if r.state.has(sent) {
 					return
 				}
 			}
