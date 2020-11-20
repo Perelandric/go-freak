@@ -59,15 +59,19 @@ type Response struct {
 
 	state state
 
-	// Unable to write directly to the ResponseWriter (or via gzip) because
-	// that cause WriteHeader to take place with StatusOK, which means we can
-	// no longer redirect.
-	// So instead we must write to a bytes.Buffer.
-	buf bytes.Buffer
+	// The individual content writing methods are NOT to touch this struct.
+	// It is only used during initialization and teardown of a Response.
+	_DO_NOT_WRITE_DIRECTLY_ struct {
+		// Unable to write directly to the ResponseWriter (or via gzip) because
+		// that cause WriteHeader to take place with StatusOK, which means we can
+		// no longer redirect.
+		// So instead we must write to a bytes.Buffer.
+		buf bytes.Buffer
 
-	// When gzipping is enabled, the &buf in this struct becomes
-	// the underlying Writer for the gzip.Writer
-	gzip gzip.Writer
+		// When gzipping is enabled, the &buf in this struct becomes
+		// the underlying Writer for the gzip.Writer
+		gzip gzip.Writer
+	}
 
 	// This receives either the &buf or the &gzip from this struct.
 	// ONLY write to this writer, not to 'buf' or 'gzip'
@@ -109,8 +113,13 @@ func getResponse(
 		gz, _ := gzip.NewWriterLevel(nil, s.compressionLevel)
 
 		r = &Response{
-			gzip: *gz,
-			buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
+			_DO_NOT_WRITE_DIRECTLY_: struct {
+				buf  bytes.Buffer
+				gzip gzip.Writer
+			}{
+				gzip: *gz,
+				buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
+			},
 		}
 		r.thisAsValue = reflect.ValueOf(r)
 	}
@@ -122,11 +131,11 @@ INITIALIZE:
 	if doGzip {
 		r.state.set(acceptsGzip)
 
-		r.gzip.Reset(&r.buf)
-		r.writer = &r.gzip
+		r._DO_NOT_WRITE_DIRECTLY_.gzip.Reset(&r._DO_NOT_WRITE_DIRECTLY_.buf)
+		r.writer = &r._DO_NOT_WRITE_DIRECTLY_.gzip
 
 	} else {
-		r.writer = &r.buf
+		r.writer = &r._DO_NOT_WRITE_DIRECTLY_.buf
 	}
 
 	r.siteMapNode = node
@@ -140,19 +149,19 @@ func putResponse(s *server, r *Response) {
 		r.resp.WriteHeader(http.StatusOK)
 
 		if r.state.has(acceptsGzip) {
-			r.gzip.Close()
+			r._DO_NOT_WRITE_DIRECTLY_.gzip.Close()
 
 			// TODO: Is this reset needed? It will only ever get the &buf from the same struct
-			r.gzip.Reset(nil)
+			r._DO_NOT_WRITE_DIRECTLY_.gzip.Reset(nil)
 		}
 
-		r.resp.Write(r.buf.Bytes())
+		r.resp.Write(r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes())
 	}
 
-	if r.buf.Cap() > _bufMaxSize {
-		r.buf = *bytes.NewBuffer(r.buf.Bytes()[0:0:_bufMaxSize])
+	if r._DO_NOT_WRITE_DIRECTLY_.buf.Cap() > _bufMaxSize {
+		r._DO_NOT_WRITE_DIRECTLY_.buf = *bytes.NewBuffer(r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes()[0:0:_bufMaxSize])
 	} else {
-		r.buf.Reset()
+		r._DO_NOT_WRITE_DIRECTLY_.buf.Reset()
 	}
 
 	// Clear data and put back into the pool.
@@ -236,7 +245,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 	for i := 0; i < len(c.markers); i++ {
 		var m = c.markers[i]
 
-		r.buf.Write(m.htmlPrefix)
+		r.writer.Write(m.htmlPrefix)
 
 		switch m.kind {
 		case plainMarker:
@@ -303,5 +312,5 @@ func (r *Response) do(c *component, dataI interface{}) {
 		panic("unreachable")
 	}
 
-	r.buf.Write(c.htmlTail)
+	r.writer.Write(c.htmlTail)
 }
