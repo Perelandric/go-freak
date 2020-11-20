@@ -83,15 +83,10 @@ func getResponse(
 		select {
 		case r = <-respPool:
 			goto INITIALIZE
-		default:
-			goto CREATE
 		}
-	} else {
-		goto CREATE
 	}
 
-CREATE:
-	{
+	{ // create new Response
 		gz, _ := gzip.NewWriterLevel(nil, s.compressionLevel)
 
 		r = &Response{
