@@ -69,7 +69,8 @@ type Response struct {
 	// the underlying Writer for the gzip.Writer
 	gzip gzip.Writer
 
-	// This receives either the &buf or the &gzip from this struct
+	// This receives either the &buf or the &gzip from this struct.
+	// ONLY write to this writer, not to 'buf' or 'gzip'
 	writer io.Writer
 
 	siteMapNode *SiteMapNode // for the requested page
