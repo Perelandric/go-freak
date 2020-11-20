@@ -329,8 +329,8 @@ func (s *server) serve(
 		return
 	}
 
-	var hasTail = tailIdx != -1
-	if hasTail && !tailWasCached && r.state.has(cacheTail) {
+	var hasURLTail = tailIdx != -1
+	if hasURLTail && !tailWasCached && r.state.has(cacheTail) {
 		s.addTailRoute(fh, fullPth)
 	}
 }
