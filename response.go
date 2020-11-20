@@ -65,8 +65,12 @@ type Response struct {
 	// So instead we must write to a bytes.Buffer.
 	buf bytes.Buffer
 
+	// When gzipping is enabled, the &buf in this struct becomes
+	// the underlying Writer for the gzip.Writer
+	gzip gzip.Writer
+
+	// This receives either the &buf or the &gzip from this struct
 	writer io.Writer
-	gzip   gzip.Writer
 
 	siteMapNode *SiteMapNode // for the requested page
 }
