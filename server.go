@@ -320,8 +320,8 @@ func (s *server) serve(
 		respHdrs[_contentEncoding] = gzipHeader
 	}
 
-	var r = s.getResponse(resp, req, fh.siteMapNode, doGzip)
-	defer s.putResponse(r)
+	var r = getResponse(s, resp, req, fh.siteMapNode, doGzip)
+	defer putResponse(s, r)
 
 	r.do(fh.route.Component, &RouteData{})
 
@@ -348,79 +348,6 @@ var _poolSize = 4 * runtime.NumCPU()
 var respPool = make(chan *Response, _poolSize)
 
 //var allocated = 0
-
-func (s *server) getResponse(
-	resp http.ResponseWriter,
-	req *http.Request,
-	node *SiteMapNode,
-	doGzip bool,
-) (r *Response) {
-
-	if _poolEnabled {
-		select {
-		case r = <-respPool:
-
-		default:
-			r = newResponse(s.compressionLevel, _bufMaxSize)
-			//allocated++
-			//fmt.Printf("allocated %d response objects\n", allocated)
-		}
-	} else {
-		r = newResponse(s.compressionLevel, _bufMaxSize)
-	}
-
-	r.req = req
-	r.resp = resp
-
-	if doGzip {
-		r.state.set(acceptsGzip)
-
-		r.gzip.Reset(&r.buf)
-		r.writer = &r.gzip
-
-	} else {
-		r.writer = &r.buf
-	}
-
-	r.siteMapNode = node
-
-	return r
-}
-
-// putResponse puts the *Response object back in the pool.
-func (s *server) putResponse(r *Response) {
-	if !r.state.has(sent) {
-		r.resp.WriteHeader(http.StatusOK)
-
-		if r.state.hasAny(acceptsGzip) {
-			r.gzip.Close()
-			r.gzip.Reset(nil)
-		}
-
-		r.resp.Write(r.buf.Bytes())
-	}
-
-	if r.buf.Cap() > _bufMaxSize {
-		r.buf = *bytes.NewBuffer(r.buf.Bytes()[0:0:_bufMaxSize])
-	} else {
-		r.buf.Reset()
-	}
-
-	// Clear data and put back into the pool.
-	r.cookiesToSend = r.cookiesToSend[0:0]
-	r.resp = nil
-	r.req = nil
-	r.state = state{}
-	r.halt = false
-
-	if _poolEnabled {
-		select {
-		case respPool <- r: // Successfully placed back into pool
-
-		default: // let overflow get GC'd
-		}
-	}
-}
 
 func cleanPath(urlPath string) string {
 	// Any path not starting with `/` goes to home page

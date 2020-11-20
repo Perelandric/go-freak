@@ -71,15 +71,88 @@ type Response struct {
 	siteMapNode *SiteMapNode // for the requested page
 }
 
-func newResponse(compressionLevel, bufMaxSize int) *Response {
-	gz, _ := gzip.NewWriterLevel(nil, compressionLevel)
+func getResponse(
+	s *server,
+	resp http.ResponseWriter,
+	req *http.Request,
+	node *SiteMapNode,
+	doGzip bool,
+) (r *Response) {
 
-	var r = &Response{
-		gzip: *gz,
-		buf:  *bytes.NewBuffer(make([]byte, 0, bufMaxSize)),
+	if _poolEnabled {
+		select {
+		case r = <-respPool:
+			goto INITIALIZE
+		default:
+			goto CREATE
+		}
+	} else {
+		goto CREATE
 	}
-	r.thisAsValue = reflect.ValueOf(r)
+
+CREATE:
+	{
+		gz, _ := gzip.NewWriterLevel(nil, s.compressionLevel)
+
+		r = &Response{
+			gzip: *gz,
+			buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
+		}
+		r.thisAsValue = reflect.ValueOf(r)
+	}
+
+INITIALIZE:
+	r.req = req
+	r.resp = resp
+
+	if doGzip {
+		r.state.set(acceptsGzip)
+
+		r.gzip.Reset(&r.buf)
+		r.writer = &r.gzip
+
+	} else {
+		r.writer = &r.buf
+	}
+
+	r.siteMapNode = node
+
 	return r
+}
+
+// putResponse puts the *Response object back in the pool.
+func putResponse(s *server, r *Response) {
+	if !r.state.has(sent) {
+		r.resp.WriteHeader(http.StatusOK)
+
+		if r.state.hasAny(acceptsGzip) {
+			r.gzip.Close()
+			r.gzip.Reset(nil)
+		}
+
+		r.resp.Write(r.buf.Bytes())
+	}
+
+	if r.buf.Cap() > _bufMaxSize {
+		r.buf = *bytes.NewBuffer(r.buf.Bytes()[0:0:_bufMaxSize])
+	} else {
+		r.buf.Reset()
+	}
+
+	// Clear data and put back into the pool.
+	r.cookiesToSend = r.cookiesToSend[0:0]
+	r.resp = nil
+	r.req = nil
+	r.state = state{}
+	r.halt = false
+
+	if _poolEnabled {
+		select {
+		case respPool <- r: // Successfully placed back into pool
+
+		default: // let overflow get GC'd
+		}
+	}
 }
 
 func (r *Response) WriteBytes(b []byte) {
