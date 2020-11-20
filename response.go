@@ -140,12 +140,15 @@ func putResponse(s *server, r *Response) {
 
 		if r.state.has(acceptsGzip) {
 			r.gzip.Close()
+			r.resp.Write(r.buf.Bytes())
 
 			// TODO: Is this reset needed? It will only ever get the &buf from the same struct
 			r.gzip.Reset(nil)
+		} else {
+			r.resp.Write(r.buf.Bytes())
 		}
 
-		r.resp.Write(r.buf.Bytes())
+		//		r.resp.Write(r.buf.Bytes()) // TODO: Maybe the .Write needs to be before the .Reset above
 	}
 
 	if r.buf.Cap() > _bufMaxSize {
