@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -337,17 +336,6 @@ func (s *server) serve(
 }
 
 var errNilComponent = fmt.Errorf("handler returned a nil component")
-
-const (
-	_poolEnabled = true
-	_bufMaxSize  = 50000
-)
-
-var _poolSize = 4 * runtime.NumCPU()
-
-var respPool = make(chan *Response, _poolSize)
-
-//var allocated = 0
 
 func cleanPath(urlPath string) string {
 	// Any path not starting with `/` goes to home page

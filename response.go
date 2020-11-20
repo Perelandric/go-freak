@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"runtime"
 )
 
 type state struct {
@@ -70,6 +71,17 @@ type Response struct {
 
 	siteMapNode *SiteMapNode // for the requested page
 }
+
+const (
+	_poolEnabled = true
+	_bufMaxSize  = 50000
+)
+
+var _poolSize = 4 * runtime.NumCPU()
+
+var respPool = make(chan *Response, _poolSize)
+
+//var allocated = 0
 
 func getResponse(
 	s *server,
