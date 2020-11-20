@@ -59,8 +59,6 @@ type Response struct {
 
 	state state
 
-	gzip gzip.Writer
-
 	// Unable to write directly to the ResponseWriter (or via gzip) because
 	// that cause WriteHeader to take place with StatusOK, which means we can
 	// no longer redirect.
@@ -68,6 +66,7 @@ type Response struct {
 	buf bytes.Buffer
 
 	writer io.Writer
+	gzip   gzip.Writer
 
 	siteMapNode *SiteMapNode // for the requested page
 }
