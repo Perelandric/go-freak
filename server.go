@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -323,8 +322,6 @@ func (s *server) serve(
 
 	var r = s.getResponse(resp, req, fh.siteMapNode, doGzip)
 	defer s.putResponse(r)
-
-	r.thisAsValue = reflect.ValueOf(&r)
 
 	r.do(fh.route.Component, &RouteData{})
 
