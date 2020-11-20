@@ -150,9 +150,6 @@ func putResponse(s *server, r *Response) {
 
 		if r.state.has(acceptsGzip) {
 			r._DO_NOT_WRITE_DIRECTLY_.gzip.Close()
-
-			// TODO: Is this reset needed? It will only ever get the &buf from the same struct
-			r._DO_NOT_WRITE_DIRECTLY_.gzip.Reset(nil)
 		}
 
 		r.resp.Write(r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes())
