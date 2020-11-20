@@ -145,22 +145,23 @@ INITIALIZE:
 
 // putResponse puts the *Response object back in the pool.
 func putResponse(s *server, r *Response) {
+	var _dnrd = &r._DO_NOT_WRITE_DIRECTLY_
+
 	if !r.state.has(sent) {
 		r.resp.WriteHeader(http.StatusOK)
 
 		if r.state.has(acceptsGzip) {
-			r._DO_NOT_WRITE_DIRECTLY_.gzip.Close()
+			_dnrd.gzip.Close()
 		}
 
-		r.resp.Write(r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes())
+		r.resp.Write(_dnrd.buf.Bytes())
 	}
 
-	if r._DO_NOT_WRITE_DIRECTLY_.buf.Cap() > _bufMaxSize {
-		r._DO_NOT_WRITE_DIRECTLY_.buf = *bytes.NewBuffer(
-			r._DO_NOT_WRITE_DIRECTLY_.buf.Bytes()[0:0:_bufMaxSize],
-		)
-	} else {
-		r._DO_NOT_WRITE_DIRECTLY_.buf.Reset()
+	_dnrd.buf.Reset()
+
+	if _dnrd.buf.Cap() > _bufMaxSize {
+		// Reduce underlying capacity to the given masimum
+		_dnrd.buf = *bytes.NewBuffer(_dnrd.buf.Bytes()[0:0:_bufMaxSize])
 	}
 
 	// Clear data and put back into the pool.
