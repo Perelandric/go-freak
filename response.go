@@ -114,24 +114,22 @@ func getResponse(
 			gzip: *gz,
 			buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
 		}
-		r.thisAsValue = reflect.ValueOf(r)
+		r.thisAsValue = reflect.ValueOf(r.Response)
 	}
 
 INITIALIZE:
 	r.req = req
 	r.resp = resp
+	r.siteMapNode = node
 
 	if doGzip {
 		r.state.set(acceptsGzip)
-
 		r.gzip.Reset(&r.buf)
 		r.writer = &r.gzip
 
 	} else {
 		r.writer = &r.buf
 	}
-
-	r.siteMapNode = node
 
 	return r
 }
