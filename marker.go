@@ -61,8 +61,11 @@ var re = regexp.MustCompile(
 )
 
 func processFuncs(
-	css CSS, html string, markerFuncs []*marker, isWrapper bool,
-) (component, component) {
+	css CSS, html string, markerFuncs []*marker, wrapper *wrapper,
+) (c1 *component, c2 *component) {
+
+	var isWrapper = wrapper != nil
+	c1 = &component{}
 
 	const unblanaced = "Unbalanced Wrapper start and end points"
 	const onlyWrapperGetsContent = "Only a Wrapper component may define a '${}' content marker"
@@ -76,8 +79,6 @@ func processFuncs(
 	var markerIndex = 0
 	var currentWrapperNesting = 0
 	var maxWrapperNesting = 0
-
-	var c1, c2 component
 
 	var m = re.FindAllStringSubmatchIndex(string(html), -1)
 
@@ -124,6 +125,7 @@ func processFuncs(
 			markerIndexAfterContent = markerIndex
 
 			c1.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
+
 			htmlPrefixStartIdx = match[1]
 			continue
 
@@ -146,6 +148,9 @@ func processFuncs(
 		}
 
 		markerFuncs[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
+
+		stringCacheInsert(&markerFuncs[markerIndex].htmlPrefix)
+
 		htmlPrefixStartIdx = match[1]
 		markerIndex++
 	}
@@ -172,20 +177,28 @@ func processFuncs(
 
 	if !isWrapper {
 		c1.htmlTail = []byte(html[htmlPrefixStartIdx:])
+
+		stringCacheInsert(&c1.htmlTail)
+
 		c1.maxWrapperNesting = maxWrapperNesting
-		return c1, c2 // c2 is ignored by the caller
+		return c1, nil
 	}
 
-	return component{
-			markers:           c1.markers[0:markerIndexAfterContent],
-			htmlTail:          c1.htmlTail,
-			maxWrapperNesting: maxWrapperNesting,
-		},
-		component{
-			markers:           c1.markers[markerIndexAfterContent:],
-			htmlTail:          []byte(html[htmlPrefixStartIdx:]),
-			maxWrapperNesting: maxWrapperNesting,
-		}
+	wrapper.preContent = component{
+		markers:           c1.markers[0:markerIndexAfterContent],
+		htmlTail:          c1.htmlTail,
+		maxWrapperNesting: maxWrapperNesting,
+	}
+	wrapper.postContent = component{
+		markers:           c1.markers[markerIndexAfterContent:],
+		htmlTail:          []byte(html[htmlPrefixStartIdx:]),
+		maxWrapperNesting: maxWrapperNesting,
+	}
+
+	stringCacheInsert(&wrapper.preContent.htmlTail)
+	stringCacheInsert(&wrapper.postContent.htmlTail)
+
+	return nil, nil
 }
 
 func giveEndIndexToMarkerStart(index int, markers []*marker) {

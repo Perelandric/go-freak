@@ -10,10 +10,10 @@ func Component(
 	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
 ) *component {
 	c, _ := processFuncs(
-		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), false,
+		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), nil,
 	)
 
-	return &c
+	return c
 }
 
 type wrapper struct {
@@ -25,12 +25,11 @@ func Wrapper(
 	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
 ) *wrapper {
 
-	c1, c2 := processFuncs(
-		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), true,
+	var w wrapper
+
+	_, _ = processFuncs(
+		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), &w,
 	)
 
-	return &wrapper{
-		preContent:  c1,
-		postContent: c2,
-	}
+	return &w
 }

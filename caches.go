@@ -1,7 +1,6 @@
 package freak
 
 import (
-	"bytes"
 	"sort"
 	"sync"
 )
@@ -17,25 +16,21 @@ It reuses strings references to eliminate redundency in memory.
 var stringCache []*[]byte
 var stringCacheMux sync.Mutex
 
-// Inserts the string pointer in length-order
-func stringCacheInsert(buf *bytes.Buffer) (str []byte) {
-	var bufLen = buf.Len()
-	if bufLen == 0 {
-		return nil
-	}
+// TODO: One thing I co
 
-	str = append(make([]byte, 0, bufLen), buf.Bytes()...)
+// Inserts the string pointer in length-order
+func stringCacheInsert(buf *[]byte) {
+	var bufLen = len(*buf)
+	if bufLen == 0 {
+		return
+	}
 
 	stringCacheMux.Lock()
 
 	// TODO: Maintain length order (using binary search) and remove the sort below
-	stringCache = append(stringCache, &str)
+	stringCache = append(stringCache, buf)
 
 	stringCacheMux.Unlock()
-
-	buf.Reset()
-
-	return str
 }
 
 // Is run after all Prototypes have been initialized.
@@ -49,17 +44,43 @@ func locateSubstrings() {
 		return len(*stringCache[i]) < len(*stringCache[j])
 	})
 
-	// Staring with the short strings (which are at the start), try to find a matching substring
-	// in one of the strings that are equal length or longer (searching longest strings first).
-	for i, last := 0, len(stringCache)-1; i < last; i++ {
-		for j := last; j > i; j-- {
-			var strI, strJ = *stringCache[i], *stringCache[j]
-			var idx = bytes.Index(strJ, strI)
+	// TODO: After all static HTML data has been received, should I put it into
+	//		one monolithic []byte, keep indices of where each one started, and then
+	//		take subslices from that single []byte? That would align a good bit of
+	//		memory.
+	//  If I precalculate the sums of the slices, I can pre-allocate and then safely
+	//   take pointers into the momo-slice.
 
-			if idx != -1 { // Update the `i` string with the matching substring at `j`
-				*stringCache[i] = strJ[idx : idx+len(strI)]
-				break
+	var totalLen = 0
+	for _, b := range stringCache {
+		totalLen += len(*b)
+	}
+
+	var monolithic = make([]byte, 0, totalLen)
+	//	var startIndices = make([]int, 0, len(stringCache))
+	for _, b := range stringCache {
+		var nextIdx = len(monolithic)
+		//		startIndices = append(startIndices, nextIdx)
+
+		monolithic = append(monolithic, (*b)...)
+
+		var endIdx = len(monolithic)
+		*b = monolithic[nextIdx:endIdx]
+	}
+
+	/*
+		// Staring with the short strings (which are at the start), try to find a matching substring
+		// in one of the strings that are equal length or longer (searching longest strings first).
+		for i, last := 0, len(stringCache)-1; i < last; i++ {
+			for j := last; j > i; j-- {
+				var strI, strJ = *stringCache[i], *stringCache[j]
+				var idx = bytes.Index(strJ, strI)
+
+				if idx != -1 { // Update the `i` string with the matching substring at `j`
+					*stringCache[i] = strJ[idx : idx+len(strI)]
+					break
+				}
 			}
 		}
-	}
+	*/
 }
