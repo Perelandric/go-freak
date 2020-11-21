@@ -57,15 +57,21 @@ func locateSubstrings() {
 	}
 
 	var monolithic = make([]byte, 0, totalLen)
-	//	var startIndices = make([]int, 0, len(stringCache))
+	//	var indexPairs = make([]struct{
+	//    start, end int, ptr *[]byte,
+	//  }, 0, len(stringCache))
+
 	for _, b := range stringCache {
-		var nextIdx = len(monolithic)
-		//		startIndices = append(startIndices, nextIdx)
+		var currStartIdx = len(monolithic)
 
 		monolithic = append(monolithic, (*b)...)
 
 		var endIdx = len(monolithic)
-		*b = monolithic[nextIdx:endIdx]
+		*b = monolithic[currStartIdx:endIdx]
+
+		//		indexPairs = append(indexPairs, struct{
+		// start, end int, ptr *[]byte
+		// }{nextIdx, endIdx, b})
 	}
 
 	/*
