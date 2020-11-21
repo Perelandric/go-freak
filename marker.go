@@ -79,8 +79,6 @@ func processFuncs(
 
 	var c1, c2 component
 
-	// TODO: Need to verify balance of wrapper start and end points
-
 	var m = re.FindAllStringSubmatchIndex(string(html), -1)
 
 	for _, match := range m {
