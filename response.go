@@ -117,7 +117,7 @@ func getResponse(
 			gzip: *gz,
 			buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
 		}
-		r.thisAsValue = reflect.ValueOf(r.Response)
+		r.thisAsValue = reflect.ValueOf(&r.Response)
 	}
 
 INITIALIZE:
