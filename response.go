@@ -108,7 +108,10 @@ func getResponse(
 	}
 
 	{ // create new Response
-		gz, _ := gzip.NewWriterLevel(nil, s.compressionLevel)
+		gz, err := gzip.NewWriterLevel(nil, s.compressionLevel)
+		if err != nil {
+			panic(err) // unreachable, because s.compressionLevel was already checked
+		}
 
 		r = &response{
 			gzip: *gz,
