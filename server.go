@@ -26,7 +26,7 @@ func (s *Server) SetRoutes(routes ...Route) error {
 }
 
 func (s *Server) Start(host string, port uint16) error {
-	return (*server)(s).Start(host, port)
+	return (*server)(s).start(host, port)
 }
 
 func NewServer(host string, port uint16, compressionLevel int) (*Server, error) {
@@ -152,7 +152,7 @@ func (s *server) setRoutePaths(pth string, fh *freakHandler) error {
 	return nil
 }
 
-func (s *server) Start(host string, port uint16) error {
+func (s *server) start(host string, port uint16) error {
 	if s.isStarted {
 		// TODO: Log message
 		return nil
