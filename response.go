@@ -20,6 +20,7 @@ func (s *state) set(flags stateFlag) {
 func (s *state) unset(flags stateFlag) {
 	s.flags &^= flags
 }
+
 func (s state) has(flags stateFlag) bool {
 	return s.flags&flags == flags
 }
@@ -41,24 +42,24 @@ const (
 type RouteData struct {
 }
 
+type response struct {
+	// Unable to write directly to the ResponseWriter (or via gzip) because
+	// that cause WriteHeader to take place with StatusOK, which means we can
+	// no longer redirect.
+	// So instead we must write to a bytes.Buffer.
+	buf bytes.Buffer
+
+	// When gzipping is enabled, the &buf in this struct becomes
+	// the underlying Writer for the gzip.Writer
+	gzip gzip.Writer
+
+	Response
+}
+
 type Response struct {
 	// This is for calling the provided callbacks via reflection.
 	// It holds a circular reference to itself.
 	thisAsValue reflect.Value
-
-	// The individual content writing methods are NOT to touch this struct.
-	// It is only used during initialization and teardown of a Response.
-	_DO_NOT_WRITE_DIRECTLY_ struct {
-		// Unable to write directly to the ResponseWriter (or via gzip) because
-		// that cause WriteHeader to take place with StatusOK, which means we can
-		// no longer redirect.
-		// So instead we must write to a bytes.Buffer.
-		buf bytes.Buffer
-
-		// When gzipping is enabled, the &buf in this struct becomes
-		// the underlying Writer for the gzip.Writer
-		gzip gzip.Writer
-	}
 
 	// This receives either the &buf or the &gzip from this struct.
 	// ONLY write to this writer, not to 'buf' or 'gzip'
@@ -84,7 +85,7 @@ const (
 
 var _poolSize = 4 * runtime.NumCPU()
 
-var respPool = make(chan *Response, _poolSize)
+var respPool = make(chan *response, _poolSize)
 
 //var allocated = 0
 
@@ -94,7 +95,7 @@ func getResponse(
 	req *http.Request,
 	node *SiteMapNode,
 	doGzip bool,
-) (r *Response) {
+) (r *response) {
 
 	if _poolEnabled {
 		select {
@@ -109,14 +110,9 @@ func getResponse(
 	{ // create new Response
 		gz, _ := gzip.NewWriterLevel(nil, s.compressionLevel)
 
-		r = &Response{
-			_DO_NOT_WRITE_DIRECTLY_: struct {
-				buf  bytes.Buffer
-				gzip gzip.Writer
-			}{
-				gzip: *gz,
-				buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
-			},
+		r = &response{
+			gzip: *gz,
+			buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
 		}
 		r.thisAsValue = reflect.ValueOf(r)
 	}
@@ -128,11 +124,11 @@ INITIALIZE:
 	if doGzip {
 		r.state.set(acceptsGzip)
 
-		r._DO_NOT_WRITE_DIRECTLY_.gzip.Reset(&r._DO_NOT_WRITE_DIRECTLY_.buf)
-		r.writer = &r._DO_NOT_WRITE_DIRECTLY_.gzip
+		r.gzip.Reset(&r.buf)
+		r.writer = &r.gzip
 
 	} else {
-		r.writer = &r._DO_NOT_WRITE_DIRECTLY_.buf
+		r.writer = &r.buf
 	}
 
 	r.siteMapNode = node
@@ -141,24 +137,22 @@ INITIALIZE:
 }
 
 // putResponse puts the *Response object back in the pool.
-func putResponse(s *server, r *Response) {
-	var _dnrd = &r._DO_NOT_WRITE_DIRECTLY_
-
+func putResponse(s *server, r *response) {
 	if !r.state.has(sent) {
 		r.resp.WriteHeader(http.StatusOK)
 
 		if r.state.has(acceptsGzip) {
-			_dnrd.gzip.Close()
+			r.gzip.Close()
 		}
 
-		r.resp.Write(_dnrd.buf.Bytes())
+		r.resp.Write(r.buf.Bytes())
 	}
 
-	_dnrd.buf.Reset()
+	r.buf.Reset()
 
-	if _dnrd.buf.Cap() > _bufMaxSize {
+	if r.buf.Cap() > _bufMaxSize {
 		// Reduce underlying capacity to the given maximum
-		_dnrd.buf = *bytes.NewBuffer(_dnrd.buf.Bytes()[0:0:_bufMaxSize])
+		r.buf = *bytes.NewBuffer(r.buf.Bytes()[0:0:_bufMaxSize])
 	}
 
 	// Clear data and put back into the pool.
