@@ -189,11 +189,6 @@ type freakHandler struct {
 	dataSmashRouteId int32
 }
 
-// TODO: What is this for?
-func (_ *freakHandler) staticFileHandler(r http.ResponseWriter, req *http.Request, pth string) {
-	http.ServeFile(r, req, pth)
-}
-
 var tailHandlersExist bool
 
 func (s *server) addTailRoute(sh *freakHandler, fullPth string) {
@@ -253,6 +248,7 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 	if fh != nil {
 		if len(fh.staticFilePath) != 0 {
+			// TODO: Why isn't the 'binaryPath' already joined?``
 			http.ServeFile(resp, req, filepath.Join(s.binaryPath, fh.staticFilePath))
 		} else {
 			s.serve(resp, req, urlPath, -1, fh, false)
