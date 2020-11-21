@@ -222,6 +222,50 @@ func (wr *WrapperResponse) SkipContent() {
 	wr.r.state.set(skipContent)
 }
 
+/*
+
+// Send503 sends a `StatusServiceUnavailable` response.
+func (r *Response) Send503(err error) {
+	log.Println(err)
+
+	if !r.wasSent() {
+		r.state.set(sent)
+		r.response.WriteHeader(http.StatusServiceUnavailable)
+	}
+}
+
+// Redirect sends a redirect with the given response `code` to the given `url`.
+func (r *Response) Redirect(code int, url string) {
+	r.doRedirect(code, url)
+}
+
+// TemporaryRedirect sends a `StatusTemporaryRedirect` (307) response.
+func (r *Response) TemporaryRedirect(url string) {
+	r.doRedirect(http.StatusTemporaryRedirect, url)
+}
+
+// RedirectToGet sends a `StatusSeeOther` (303) response to redirect a POST to
+// a GET request.
+func (r *Response) RedirectToGet(url string) {
+	r.doRedirect(http.StatusSeeOther, url)
+}
+
+// PermanentRedirect sends a `StatusMovedPermanently` (301) response.
+func (r *Response) PermanentRedirect(url string) {
+	r.doRedirect(http.StatusMovedPermanently, url)
+}
+
+func (r *Response) doRedirect(code int, url string) {
+	if !r.wasSent() {
+		r.state.set(sent)
+
+		//		r.sendCookies()
+
+		http.Redirect(r.response, r.request, url, code)
+	}
+}
+*/
+
 func (r *Response) do(c *component, dataI interface{}) {
 	if r.state.has(sent) {
 		return
