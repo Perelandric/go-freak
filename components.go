@@ -25,7 +25,7 @@ type component struct {
 	maxWrapperNesting int
 }
 
-func Component(css css, js js, html html, markers ...Marker) *component {
+func Component(css css, js js, html *html, markers ...Marker) *component {
 	var c component
 	processFuncs(css.css, js.js, html.out, markers, &c, nil)
 	return &c
@@ -36,7 +36,7 @@ type wrapper struct {
 	postContent component
 }
 
-func Wrapper(css css, js js, html html, markers ...Marker) *wrapper {
+func Wrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 	var c component
 	var w wrapper
 	processFuncs(css.css, js.js, html.out, markers, &c, &w)
