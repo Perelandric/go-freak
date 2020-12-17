@@ -13,7 +13,7 @@ import (
 
 type Route struct {
 	Path        string
-	Component   *component
+	Target      *component
 	Catch404    bool
 	DisplayName string
 	Description string
@@ -96,8 +96,8 @@ func (s *server) setRoutes(routes ...Route) error {
 	}
 
 	for _, route := range routes {
-		if route.Component == nil {
-			return fmt.Errorf("A route's component must not be nil")
+		if route.Target == nil {
+			return fmt.Errorf("The target for path %q was nil", route.Path)
 		}
 
 		var pth = cleanPath(route.Path)
@@ -325,7 +325,7 @@ func (s *server) serve(
 	var r = getResponse(s, resp, req, fh.siteMapNode, doGzip)
 	defer putResponse(s, r)
 
-	r.do(fh.route.Component, &RouteData{})
+	r.do(fh.route.Target, &RouteData{})
 
 	if r.state.has(sent) {
 		// TODO: Need to actually be handling HTTP error types
