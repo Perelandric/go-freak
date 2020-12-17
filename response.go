@@ -353,9 +353,10 @@ func (r *Response) do(c *component, dataI interface{}) {
 
 			for i := len(funcSlice) - 1; i != -1 && !r.state.has(sent); i-- {
 				funcSlice[i](r)
-				if r.state.has(sent) {
-					return
-				}
+			}
+
+			if r.state.has(sent) {
+				return
 			}
 
 			endStackIndex--
