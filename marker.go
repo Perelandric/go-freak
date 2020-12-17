@@ -35,7 +35,7 @@ const (
 
 type marker struct {
 	name            string
-	fn              reflect.Value // func(r *freak.Response, d *exampleWrapperData)
+	callback        reflect.Value // func(r *freak.Response, d *exampleWrapperData)
 	htmlPrefix      []byte
 	wrapperEndIndex uint16
 	kind            markerKind
@@ -47,7 +47,7 @@ func toInternalMarkers(markers []Marker) []*marker {
 	for i, m := range markers {
 		res[i] = &marker{
 			name:       m.Name,
-			fn:         reflect.ValueOf(m.Func),
+			callback:   reflect.ValueOf(m.Func),
 			htmlPrefix: nil,
 			kind:       0,
 		}
@@ -99,8 +99,8 @@ func processFuncs(
 		switch matchedSub {
 		case 1: // Wrapper end '}}'
 			var newMarker = &marker{
-				fn:   reflect.ValueOf(nil),
-				kind: wrapperEnd,
+				callback: reflect.ValueOf(nil),
+				kind:     wrapperEnd,
 			}
 
 			markerFuncs = append(append(append(

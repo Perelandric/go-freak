@@ -306,7 +306,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 
 		switch m.kind {
 		case plainMarker:
-			m.fn.Call(callArgs[:])
+			m.callback.Call(callArgs[:])
 			if r.state.has(sent) {
 				return
 			}
@@ -321,7 +321,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 			var funcSlice = wrapperEndStack[endStackIndex]
 			r.wrapperEndingFuncs = funcSlice[0:0:cap(funcSlice)]
 
-			m.fn.Call(callArgs[:])
+			m.callback.Call(callArgs[:])
 
 			if r.state.has(sent) {
 				return
