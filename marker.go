@@ -148,8 +148,6 @@ func processFuncs(
 
 		markerFuncs[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
 
-		stringCacheInsert(&markerFuncs[markerIndex].htmlPrefix)
-
 		htmlPrefixStartIdx = match[1]
 		markerIndex++
 	}
@@ -176,10 +174,8 @@ func processFuncs(
 
 	if !isWrapper {
 		c.htmlTail = []byte(html[htmlPrefixStartIdx:])
-
-		stringCacheInsert(&c.htmlTail)
-
 		c.maxWrapperNesting = maxWrapperNesting
+		stringCacheInsert(c)
 		return
 	}
 
@@ -194,8 +190,7 @@ func processFuncs(
 		maxWrapperNesting: maxWrapperNesting,
 	}
 
-	stringCacheInsert(&wrapper.preContent.htmlTail)
-	stringCacheInsert(&wrapper.postContent.htmlTail)
+	stringCacheInsert(&wrapper.preContent, &wrapper.postContent)
 
 	return
 }

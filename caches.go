@@ -7,21 +7,27 @@ import (
 var stringCache []*[]byte
 var stringCacheMux sync.Mutex
 
-// Inserts the []byte pointer in length-order
-func stringCacheInsert(bufs ...*[]byte) {
+func stringCacheInsert(comps ...*component) {
 	stringCacheMux.Lock()
 	defer stringCacheMux.Unlock()
 
-	for _, buf := range bufs {
-		var bufLen = len(*buf)
-		if bufLen == 0 {
-			return
+	for _, comp := range comps {
+		for _, m := range comp.markers {
+			if len(m.htmlPrefix) == 0 {
+				continue
+			}
+
+			stringCache = append(stringCache, &m.htmlPrefix)
 		}
 
-		stringCache = append(stringCache, buf)
+		if len(comp.htmlTail) == 0 {
+			continue
+		}
+		stringCache = append(stringCache, &comp.htmlTail)
 	}
-
 }
+
+var allHtmlBytes []byte
 
 // Is run after all components have been initialized.
 // Perhaps run again as new component are created if allowed during runtime.
@@ -36,16 +42,18 @@ func locateSubstrings() {
 	}
 
 	// Create a single byte slice to hold all static bytes
-	var monolithic = make([]byte, 0, totalCap)
+	allHtmlBytes = make([]byte, 0, totalCap)
 
-	// Copy all static bytes into the monolithic []byte, and use the given
+	// Copy all static bytes into the allHtmlBytes, and use the given
 	// pointers to replace the existing slices with the correct subslice
 	// of the monolithic slice
 	for _, b := range stringCache {
-		var currStartIdx = len(monolithic)
+		var currStartIdx = len(allHtmlBytes)
 
-		monolithic = append(monolithic, (*b)...)
+		allHtmlBytes = append(allHtmlBytes, (*b)...)
 
-		*b = monolithic[currStartIdx:]
+		*b = allHtmlBytes[currStartIdx:]
 	}
+
+	stringCache = nil
 }
