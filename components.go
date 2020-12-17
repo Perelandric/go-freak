@@ -36,9 +36,9 @@ type wrapper struct {
 	postContent component
 }
 
-func Wrapper(css, js string, html html, markers ...Marker) *wrapper {
+func Wrapper(css css, js js, html html, markers ...Marker) *wrapper {
 	var c component
 	var w wrapper
-	processFuncs(css, js, html.out, markers, &c, &w)
+	processFuncs(css.css, js.js, html.out, markers, &c, &w)
 	return &w
 }
