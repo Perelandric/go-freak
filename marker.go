@@ -39,7 +39,7 @@ type marker struct {
 }
 
 var re = regexp.MustCompile(
-	`(}})|(\${})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
+	`(\${{}})|(}})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
 )
 
 func processFuncs(css, js, html string, markers []Marker, c *component, wrapper *wrapper) {
@@ -58,9 +58,9 @@ func processFuncs(css, js, html string, markers []Marker, c *component, wrapper 
 	var isWrapper = wrapper != nil
 
 	const unblanaced = "Unbalanced Wrapper start and end points"
-	const onlyWrapperGetsContent = "Only a Wrapper component may define a '${}' content marker"
-	const onlyOneContent = "Only one wrapper content marker '${}' is allowed"
-	const wrapperMustDefineContent = "A Wrapper must define a '${}' content marker"
+	const onlyWrapperGetsContent = "Only a Wrapper component may define a '${{}}' content marker"
+	const onlyOneContent = "Only one wrapper content marker '${{}}' is allowed"
+	const wrapperMustDefineContent = "A Wrapper must define a '${{}}' content marker"
 	const unequalMarkersAndFuncs = "Unequal number of HTML markers and marker functions"
 
 	var markerIndexAfterContent = -1
@@ -87,7 +87,24 @@ func processFuncs(css, js, html string, markers []Marker, c *component, wrapper 
 		}
 
 		switch matchedSub {
-		case 1: // Wrapper end '}}'
+		case 1: // Wrapper content '${{}}'
+			if !isWrapper {
+				fmt.Println("WARNING: Found '${{}}' in a non-Wrapper")
+				continue
+				//				panic(onlyWrapperGetsContent)
+			}
+			if markerIndexAfterContent != -1 {
+				panic(onlyOneContent)
+			}
+
+			markerIndexAfterContent = markerIndex
+
+			c.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
+
+			htmlPrefixStartIdx = match[1]
+			continue
+
+		case 2: // Wrapper end '}}'
 			var newMarker = &marker{
 				callback: reflect.ValueOf(nil),
 				kind:     wrapperEnd,
@@ -103,21 +120,6 @@ func processFuncs(css, js, html string, markers []Marker, c *component, wrapper 
 			}
 
 			giveEndIndexToMarkerStart(markerIndex, markerFuncs)
-
-		case 2: // Wrapper content '${}'
-			if !isWrapper {
-				panic(onlyWrapperGetsContent)
-			}
-			if markerIndexAfterContent != -1 {
-				panic(onlyOneContent)
-			}
-
-			markerIndexAfterContent = markerIndex
-
-			c.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
-
-			htmlPrefixStartIdx = match[1]
-			continue
 
 		case 3: // Wrapper start '${{foo'
 			markerFuncs[markerIndex].kind = wrapperStartMarker
