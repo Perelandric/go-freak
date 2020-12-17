@@ -22,7 +22,7 @@ type Route struct {
 type Server server
 
 func (s *Server) SetRoutes(routes ...Route) error {
-	return (*server)(s).setRoutes(routes...)
+	return (*server)(s).setRoutes(routes)
 }
 
 func (s *Server) Start() error {
@@ -90,7 +90,7 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 // Avoids a map lookup
 var rootRoute *freakHandler
 
-func (s *server) setRoutes(routes ...Route) error {
+func (s *server) setRoutes(routes []Route) error {
 	if s.isStarted {
 		return fmt.Errorf("Server is already running")
 	}
