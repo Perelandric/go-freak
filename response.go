@@ -327,7 +327,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 				return
 			}
 
-			// In case the end-funcs slice was grown beyond itw original capacity
+			// In case the end-funcs slice was grown beyond its original capacity
 			wrapperEndStack[endStackIndex] = r.wrapperEndingFuncs
 
 			r.wrapperEndingFuncs = nil
