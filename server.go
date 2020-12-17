@@ -235,6 +235,7 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 	// Check for static resource request
 	if len(urlPath) >= 5 &&
+		urlPath[0] == '/' &&
 		urlPath[1] == 'r' &&
 		urlPath[2] == 'e' &&
 		urlPath[3] == 's' &&
