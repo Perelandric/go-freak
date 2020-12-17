@@ -259,6 +259,29 @@ func (r *Response) doRedirect(code int, url string) {
 		http.Redirect(r.response, r.request, url, code)
 	}
 }
+
+// SetCookie sets the given cookie to be sent with the response.
+func (br *baseResponse) SetCookie(c *http.Cookie) {
+	http.SetCookie(br.response, c)
+}
+
+// GetCookie gets the cookie from the current request.
+func (br *baseResponse) GetCookie(name string) *http.Cookie {
+	c, err := br.request.Cookie(name)
+	if err != nil && err != http.ErrNoCookie {
+		log.Printf("GetCookie error: %q\n", err)
+	}
+
+	return c // Return the Cookie or nil
+}
+
+// ExpireCookie expires the given cookie.
+func (br *baseResponse) ExpireCookie(c *http.Cookie) {
+	cc := *c
+	cc.MaxAge = -1
+	http.SetCookie(br.response, &cc)
+}
+
 */
 
 func (r *Response) do(c *component, dataI interface{}) {
