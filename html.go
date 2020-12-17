@@ -11,26 +11,25 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-type htmlCompressFlag uint8
 type htmlCompressFlagHolder struct {
-	_no_touchy htmlCompressFlag
+	_no_touchy uint8
 }
 
 const (
-	compressComments = htmlCompressFlag(1 << iota)
+	compressComments = uint8(1 << iota)
 	compressEndTags
 	compressStartTags
 	compressWhitespace
 	compressWhitespaceExtreme
 )
 
-func (hcf htmlCompressFlagHolder) hasAny(f htmlCompressFlag) bool {
+func (hcf htmlCompressFlagHolder) hasAny(f uint8) bool {
 	return hcf._no_touchy&f != 0
 }
-func (hcf htmlCompressFlagHolder) hasAll(f htmlCompressFlag) bool {
+func (hcf htmlCompressFlagHolder) hasAll(f uint8) bool {
 	return hcf._no_touchy&f == f
 }
-func (hcf htmlCompressFlagHolder) hasNone(f htmlCompressFlag) bool {
+func (hcf htmlCompressFlagHolder) hasNone(f uint8) bool {
 	return hcf._no_touchy&f == 0
 }
 func (hcf htmlCompressFlagHolder) isZero() bool {
