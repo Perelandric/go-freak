@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/html"
+	html_parser "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 )
 
-type htmlCompressFlagHolder struct {
+type htmlFlagHolder struct {
 	_no_touchy uint8
 }
 
@@ -23,75 +23,66 @@ const (
 	compressWhitespaceExtreme
 )
 
-func (hcf htmlCompressFlagHolder) hasAny(f uint8) bool {
+func (hcf htmlFlagHolder) hasAny(f uint8) bool {
 	return hcf._no_touchy&f != 0
 }
-func (hcf htmlCompressFlagHolder) hasAll(f uint8) bool {
+func (hcf htmlFlagHolder) hasAll(f uint8) bool {
 	return hcf._no_touchy&f == f
 }
-func (hcf htmlCompressFlagHolder) hasNone(f uint8) bool {
+func (hcf htmlFlagHolder) hasNone(f uint8) bool {
 	return hcf._no_touchy&f == 0
 }
-func (hcf htmlCompressFlagHolder) isZero() bool {
+func (hcf htmlFlagHolder) isZero() bool {
 	return hcf._no_touchy == 0
 }
 
-type htmlCompress struct {
+type html struct {
 	in, out string
-	level   htmlCompressFlagHolder
+	level   htmlFlagHolder
 }
 
-func None(s string) htmlCompress {
-	return htmlCompress{
-		in:    s,
-		out:   "",
-		level: htmlCompressFlagHolder{0},
+func (h *html) None() *html {
+	if !h.level.isZero() {
+		h.level._no_touchy = 0
+		h.out = h.in
 	}
+	return h
 }
-func Moderate(s string) htmlCompress {
-	return htmlCompress{
-		in:    s,
-		out:   "",
-		level: htmlCompressFlagHolder{compressComments | compressWhitespace},
-	}
+func (h *html) Moderate() *html {
+	h.compress(compressComments | compressWhitespace)
+	return h
 }
-func Aggressive(s string) htmlCompress {
-	return htmlCompress{
-		in:    s,
-		out:   "",
-		level: htmlCompressFlagHolder{compressComments | compressWhitespace | compressEndTags},
-	}
+func (h *html) Aggressive() *html {
+	h.compress(compressComments | compressWhitespace | compressEndTags)
+	return h
 }
-func Extreme(s string) htmlCompress {
-	return htmlCompress{
-		in:  s,
-		out: "",
-		level: htmlCompressFlagHolder{
-			compressComments | compressWhitespace | compressEndTags | compressStartTags | compressWhitespaceExtreme,
-		},
-	}
+func (h *html) Extreme() *html {
+	h.compress(compressComments | compressWhitespace | compressEndTags | compressStartTags | compressWhitespaceExtreme)
+	return h
 }
 
-func (hc *htmlCompress) compress() string {
-	if hc.level.isZero() {
-		return hc.in
+func (hc *html) compress(level uint8) string {
+	if hc.level.isZero() == false {
+		// already compressed
+		return hc.out
 	}
+	hc.level = htmlFlagHolder{level}
 
 	var markupStr = hc.in
 
 	var ctxNode = getContext(strToBytes(markupStr))
-	var node *html.Node
-	var nodes []*html.Node
+	var node *html_parser.Node
+	var nodes []*html_parser.Node
 	var err error
 
 	if ctxNode == nil { // We're at the top of a page
-		node, err = html.Parse(strings.NewReader(markupStr))
+		node, err = html_parser.Parse(strings.NewReader(markupStr))
 
 	} else {
-		nodes, err = html.ParseFragment(strings.NewReader(hc.in), ctxNode)
+		nodes, err = html_parser.ParseFragment(strings.NewReader(hc.in), ctxNode)
 
 		// ParseFragment does not join as siblings, so join them
-		var prev *html.Node
+		var prev *html_parser.Node
 		for _, n := range nodes {
 			if prev == nil {
 				node = n
@@ -126,7 +117,7 @@ func (hc *htmlCompress) compress() string {
 
 var reTag = regexp.MustCompile(`<(!(--)?)?[a-zA-Z][a-zA-Z0-9]*`)
 
-func getContext(htm []byte) *html.Node {
+func getContext(htm []byte) *html_parser.Node {
 	var idcs = reTag.FindIndex(htm)
 	var name []byte
 
@@ -191,14 +182,14 @@ func getContext(htm []byte) *html.Node {
 		}
 	}
 
-	return &html.Node{
-		Type:     html.ElementNode,
+	return &html_parser.Node{
+		Type:     html_parser.ElementNode,
 		DataAtom: a,
 		Data:     a.String(),
 	}
 }
 
-func (hc *htmlCompress) canElideOpener(n *html.Node) bool {
+func (hc *html) canElideOpener(n *html_parser.Node) bool {
 	if hc.level.hasNone(compressStartTags) || len(n.Attr) != 0 {
 		return false
 	}
@@ -212,7 +203,7 @@ func (hc *htmlCompress) canElideOpener(n *html.Node) bool {
 	case atom.Head:
 		// A HEAD element's start tag may be omitted if the element is empty, or
 		// if the first thing inside the
-		return n.FirstChild == nil || n.FirstChild.Type == html.ElementNode
+		return n.FirstChild == nil || n.FirstChild.Type == html_parser.ElementNode
 
 	case atom.Body:
 		// A body element's start tag may be omitted if the element is empty, or
@@ -220,7 +211,7 @@ func (hc *htmlCompress) canElideOpener(n *html.Node) bool {
 		// a comment, except if the first thing inside the body element is a
 		// script or style element.
 		return n.FirstChild == nil ||
-			(n.FirstChild.Type != html.CommentNode &&
+			(n.FirstChild.Type != html_parser.CommentNode &&
 				!firstCharIsSpace(n.FirstChild) &&
 				!isOneOf(n.FirstChild, atom.Script, atom.Style))
 
@@ -245,7 +236,7 @@ func (hc *htmlCompress) canElideOpener(n *html.Node) bool {
 	}
 }
 
-func (hc *htmlCompress) canElideCloser(n *html.Node) bool {
+func (hc *html) canElideCloser(n *html_parser.Node) bool {
 	if hc.level.hasNone(compressEndTags) {
 		return false
 	}
@@ -260,7 +251,7 @@ func (hc *htmlCompress) canElideCloser(n *html.Node) bool {
 	case atom.Html:
 		// An html element's end tag may be omitted if the html element is not
 		// immediately followed by a comment.
-		return next == nil || next.Type != html.CommentNode
+		return next == nil || next.Type != html_parser.CommentNode
 
 	case atom.Head:
 		// A head element's end tag may be omitted if the head element is not
@@ -272,7 +263,7 @@ func (hc *htmlCompress) canElideCloser(n *html.Node) bool {
 	case atom.Body:
 		// A body element's end tag may be omitted if the body element is not
 		// immediately followed by a comment.
-		return next == nil || next.Type != html.CommentNode
+		return next == nil || next.Type != html_parser.CommentNode
 
 	case atom.Li:
 		// An li element's end tag may be omitted if the li element is immediately
@@ -379,7 +370,7 @@ func (hc *htmlCompress) canElideCloser(n *html.Node) bool {
 	}
 }
 
-func removeNode(n *html.Node) (prev, next *html.Node) {
+func removeNode(n *html_parser.Node) (prev, next *html_parser.Node) {
 	prev, next = n.PrevSibling, n.NextSibling
 
 	if prev != nil {
@@ -404,13 +395,13 @@ func removeNode(n *html.Node) (prev, next *html.Node) {
 	return prev, next
 }
 
-func joinNextAdjacentTextNode(tn *html.Node) (*html.Node, *html.Node) {
+func joinNextAdjacentTextNode(tn *html_parser.Node) (*html_parser.Node, *html_parser.Node) {
 	if tn == nil {
 		return nil, nil
 	}
 
 	var next = tn.NextSibling
-	if next == nil || tn.Type != html.TextNode || next.Type != html.TextNode {
+	if next == nil || tn.Type != html_parser.TextNode || next.Type != html_parser.TextNode {
 		return tn, next
 	}
 
@@ -421,11 +412,11 @@ func joinNextAdjacentTextNode(tn *html.Node) (*html.Node, *html.Node) {
 	return tn, tn.NextSibling
 }
 
-func removeComments(n *html.Node) {
+func removeComments(n *html_parser.Node) {
 	currNode := n
 
 	for currNode != nil {
-		if currNode.Type != html.CommentNode {
+		if currNode.Type != html_parser.CommentNode {
 			removeComments(currNode.FirstChild)
 			currNode = currNode.NextSibling
 
@@ -445,12 +436,12 @@ func removeComments(n *html.Node) {
 
 var reSpaces = regexp.MustCompile(`\s+`)
 
-func compressSpace(n *html.Node, isExtreme bool) {
+func compressSpace(n *html_parser.Node, isExtreme bool) {
 	currNode := n
 
 	for currNode != nil {
 
-		if currNode.Type != html.TextNode {
+		if currNode.Type != html_parser.TextNode {
 			if canCompressElem(currNode.DataAtom) {
 				compressSpace(currNode.FirstChild, isExtreme)
 			}
@@ -470,22 +461,22 @@ func compressSpace(n *html.Node, isExtreme bool) {
 	}
 }
 
-func (hc *htmlCompress) render(root *html.Node, buf *strings.Builder) {
+func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 	for currNode := root; currNode != nil; currNode = currNode.NextSibling {
 		switch currNode.Type {
 
 		default:
-			html.Render(buf, currNode)
+			html_parser.Render(buf, currNode)
 
-		case html.ErrorNode, html.RawNode:
+		case html_parser.ErrorNode, html_parser.RawNode:
 			panic(currNode.Data)
 
-		case html.DocumentNode:
+		case html_parser.DocumentNode:
 			// We want to traverse its children (probably !doctype and html)
 			hc.render(currNode.FirstChild, buf)
 			return
 
-		case html.ElementNode:
+		case html_parser.ElementNode:
 			if hc.canElideOpener(currNode) {
 
 				// If whitespace compression is enabled and
@@ -553,7 +544,7 @@ func (hc *htmlCompress) render(root *html.Node, buf *strings.Builder) {
 	}
 }
 
-func sortAttrs(attrs []html.Attribute) []html.Attribute {
+func sortAttrs(attrs []html_parser.Attribute) []html_parser.Attribute {
 	sort.Slice(attrs, func(i, j int) bool {
 		var attrI = attrs[i].Key
 		var attrJ = attrs[j].Key
@@ -571,19 +562,19 @@ func sortAttrs(attrs []html.Attribute) []html.Attribute {
 	return attrs
 }
 
-func isTextWithData(n *html.Node) bool {
-	return n != nil && n.Type == html.TextNode && len(n.Data) != 0
+func isTextWithData(n *html_parser.Node) bool {
+	return n != nil && n.Type == html_parser.TextNode && len(n.Data) != 0
 }
 
-func firstCharIsSpace(n *html.Node) bool {
+func firstCharIsSpace(n *html_parser.Node) bool {
 	return isTextWithData(n) && reSpaces.MatchString(n.Data[0:1])
 }
 
-func lastCharIsSpace(n *html.Node) bool {
+func lastCharIsSpace(n *html_parser.Node) bool {
 	return isTextWithData(n) && reSpaces.MatchString(n.Data[len(n.Data)-1:])
 }
 
-func isOneOf(n *html.Node, atoms ...atom.Atom) bool {
+func isOneOf(n *html_parser.Node, atoms ...atom.Atom) bool {
 	if n == nil {
 		return false
 	}
