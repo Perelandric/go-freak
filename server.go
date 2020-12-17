@@ -28,6 +28,12 @@ func (s *Server) SetRoutes(routes ...Route) error {
 func (s *Server) Start() error {
 	return (*server)(s).start()
 }
+func (s *Server) MustStart() {
+	var err = s.Start()
+	if err != nil {
+		panic(err)
+	}
+}
 
 func NewServer(host string, port uint16, compressionLevel int) (*Server, error) {
 	return newServer(host, port, compressionLevel)
