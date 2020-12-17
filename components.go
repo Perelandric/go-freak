@@ -6,15 +6,9 @@ type component struct {
 	maxWrapperNesting int
 }
 
-func Component(
-	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
-) *component {
+func Component(css, js string, html htmlCompress, markers ...Marker) *component {
 	var c component
-
-	processFuncs(
-		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), &c, nil,
-	)
-
+	processFuncs(css, js, html.compress(), markers, &c, nil)
 	return &c
 }
 
@@ -23,16 +17,9 @@ type wrapper struct {
 	postContent component
 }
 
-func Wrapper(
-	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
-) *wrapper {
-
+func Wrapper(css, js string, html htmlCompress, markers ...Marker) *wrapper {
 	var c component
 	var w wrapper
-
-	processFuncs(
-		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), &c, &w,
-	)
-
+	processFuncs(css, js, html.compress(), markers, &c, &w)
 	return &w
 }

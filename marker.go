@@ -6,9 +6,6 @@ import (
 	"regexp"
 )
 
-type CSS string
-type HTML string
-
 func Wrap(fn interface{}) func(*Response, interface{}) {
 	var fVal = reflect.ValueOf(fn)
 
@@ -41,28 +38,22 @@ type marker struct {
 	kind            markerKind
 }
 
-func toInternalMarkers(markers []Marker) []*marker {
-	var res = make([]*marker, len(markers))
+var re = regexp.MustCompile(
+	`(}})|(\${})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
+)
+
+func processFuncs(css, js, html string, markers []Marker, c *component, wrapper *wrapper) {
+	// Convert Marker slice to *marker slice
+	var markerFuncs = make([]*marker, len(markers))
 
 	for i, m := range markers {
-		res[i] = &marker{
+		markerFuncs[i] = &marker{
 			name:       m.Name,
 			callback:   reflect.ValueOf(m.Func),
 			htmlPrefix: nil,
 			kind:       0,
 		}
 	}
-
-	return res
-}
-
-var re = regexp.MustCompile(
-	`(}})|(\${})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
-)
-
-func processFuncs(
-	css CSS, html string, markerFuncs []*marker, c *component, wrapper *wrapper,
-) {
 
 	var isWrapper = wrapper != nil
 
@@ -79,7 +70,7 @@ func processFuncs(
 	var currentWrapperNesting = 0
 	var maxWrapperNesting = 0
 
-	var m = re.FindAllStringSubmatchIndex(string(html), -1)
+	var m = re.FindAllStringSubmatchIndex(html, -1)
 
 	for _, match := range m {
 

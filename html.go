@@ -11,27 +11,74 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
-type HTMLCompressFlag uint8
+type htmlCompressFlag uint8
+type htmlCompressFlagHolder struct {
+	_no_touchy htmlCompressFlag
+}
 
 const (
-	compressComments = HTMLCompressFlag(1 << iota)
+	compressComments = htmlCompressFlag(1 << iota)
 	compressEndTags
 	compressStartTags
 	compressWhitespace
 	compressWhitespaceExtreme
-
-	None       = HTMLCompressFlag(0)
-	Moderate   = compressComments | compressWhitespace
-	Aggressive = Moderate | compressEndTags
-	Extreme    = Aggressive | compressStartTags | compressWhitespaceExtreme
 )
 
-func compressHTML(flags HTMLCompressFlag, markup HTML) string {
-	if flags == None {
-		return string(markup)
+func (hcf htmlCompressFlagHolder) hasAny(f htmlCompressFlag) bool {
+	return hcf._no_touchy&f != 0
+}
+func (hcf htmlCompressFlagHolder) hasAll(f htmlCompressFlag) bool {
+	return hcf._no_touchy&f == f
+}
+func (hcf htmlCompressFlagHolder) hasNone(f htmlCompressFlag) bool {
+	return hcf._no_touchy&f == 0
+}
+func (hcf htmlCompressFlagHolder) isZero() bool {
+	return hcf._no_touchy == 0
+}
+
+type htmlCompress struct {
+	in, out string
+	level   htmlCompressFlagHolder
+}
+
+func None(s string) htmlCompress {
+	return htmlCompress{
+		in:    s,
+		out:   "",
+		level: htmlCompressFlagHolder{0},
+	}
+}
+func Moderate(s string) htmlCompress {
+	return htmlCompress{
+		in:    s,
+		out:   "",
+		level: htmlCompressFlagHolder{compressComments | compressWhitespace},
+	}
+}
+func Aggressive(s string) htmlCompress {
+	return htmlCompress{
+		in:    s,
+		out:   "",
+		level: htmlCompressFlagHolder{compressComments | compressWhitespace | compressEndTags},
+	}
+}
+func Extreme(s string) htmlCompress {
+	return htmlCompress{
+		in:  s,
+		out: "",
+		level: htmlCompressFlagHolder{
+			compressComments | compressWhitespace | compressEndTags | compressStartTags | compressWhitespaceExtreme,
+		},
+	}
+}
+
+func (hc *htmlCompress) compress() string {
+	if hc.level.isZero() {
+		return hc.in
 	}
 
-	var markupStr = string(markup)
+	var markupStr = hc.in
 
 	var ctxNode = getContext(strToBytes(markupStr))
 	var node *html.Node
@@ -42,7 +89,7 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 		node, err = html.Parse(strings.NewReader(markupStr))
 
 	} else {
-		nodes, err = html.ParseFragment(strings.NewReader(string(markup)), ctxNode)
+		nodes, err = html.ParseFragment(strings.NewReader(hc.in), ctxNode)
 
 		// ParseFragment does not join as siblings, so join them
 		var prev *html.Node
@@ -63,17 +110,17 @@ func compressHTML(flags HTMLCompressFlag, markup HTML) string {
 
 	// If comments are to be removed, we do it first so that newly adjacent text
 	// nodes can be joined together, making space removal more accurante
-	if flags&compressComments != 0 {
+	if hc.level.hasAny(compressComments) {
 		removeComments(node)
 	}
 
 	// If whitespace is to be compressed, we do it first since it may impact tag omission
-	if flags&(compressWhitespace|compressWhitespaceExtreme) != 0 {
-		compressSpace(node, flags&compressWhitespaceExtreme != 0)
+	if hc.level.hasAny(compressWhitespace | compressWhitespaceExtreme) {
+		compressSpace(node, hc.level.hasAny(compressWhitespaceExtreme))
 	}
 
 	var buf strings.Builder
-	render(node, &buf, flags)
+	hc.render(node, &buf)
 
 	return buf.String()
 }
@@ -152,8 +199,8 @@ func getContext(htm []byte) *html.Node {
 	}
 }
 
-func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
-	if flags&compressStartTags == 0 || len(n.Attr) != 0 {
+func (hc *htmlCompress) canElideOpener(n *html.Node) bool {
+	if hc.level.hasNone(compressStartTags) || len(n.Attr) != 0 {
 		return false
 	}
 
@@ -199,8 +246,8 @@ func canElideOpener(n *html.Node, flags HTMLCompressFlag) bool {
 	}
 }
 
-func canElideCloser(n *html.Node, flags HTMLCompressFlag) bool {
-	if flags&compressEndTags == 0 {
+func (hc *htmlCompress) canElideCloser(n *html.Node) bool {
+	if hc.level.hasNone(compressEndTags) {
 		return false
 	}
 
@@ -424,7 +471,7 @@ func compressSpace(n *html.Node, isExtreme bool) {
 	}
 }
 
-func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
+func (hc *htmlCompress) render(root *html.Node, buf *strings.Builder) {
 	for currNode := root; currNode != nil; currNode = currNode.NextSibling {
 		switch currNode.Type {
 
@@ -436,11 +483,11 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 
 		case html.DocumentNode:
 			// We want to traverse its children (probably !doctype and html)
-			render(currNode.FirstChild, buf, flags)
+			hc.render(currNode.FirstChild, buf)
 			return
 
 		case html.ElementNode:
-			if flags&compressStartTags != 0 && canElideOpener(currNode, flags) {
+			if hc.canElideOpener(currNode) {
 
 				// If whitespace compression is enabled and
 				// 	the previous sibling ends in space, and
@@ -448,7 +495,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				//	eliminate the leading space in the first child node (since
 				//	the previous sibling has already been rendered)
 
-				if flags&(compressWhitespace|compressWhitespaceExtreme) != 0 &&
+				if hc.level.hasAny(compressWhitespace|compressWhitespaceExtreme) &&
 					lastCharIsSpace(currNode.PrevSibling) &&
 					firstCharIsSpace(currNode.FirstChild) {
 					currNode.FirstChild.Data = currNode.FirstChild.Data[1:]
@@ -463,7 +510,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteString(currNode.Data)
 
 				for i, attr := range sortAttrs(currNode.Attr) {
-					if i == 0 || flags&compressWhitespaceExtreme == 0 {
+					if i == 0 || hc.level.hasNone(compressWhitespaceExtreme) {
 						buf.WriteByte(' ')
 					}
 					buf.WriteString(attr.Key)
@@ -478,9 +525,9 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				buf.WriteByte('>')
 			}
 
-			render(currNode.FirstChild, buf, flags)
+			hc.render(currNode.FirstChild, buf)
 
-			if flags&compressEndTags != 0 && canElideCloser(currNode, flags) {
+			if hc.canElideCloser(currNode) {
 
 				// If whitespace compression is enabled and
 				// 	the last child of current element ends in space, and
@@ -488,7 +535,7 @@ func render(root *html.Node, buf *strings.Builder, flags HTMLCompressFlag) {
 				//	eliminate the leading space in the next node (since the
 				//	last child has already been rendered)
 
-				if flags&(compressWhitespace|compressWhitespaceExtreme) != 0 &&
+				if hc.level.hasAny(compressWhitespace|compressWhitespaceExtreme) &&
 					lastCharIsSpace(currNode.LastChild) &&
 					firstCharIsSpace(currNode.NextSibling) {
 					currNode.NextSibling.Data = currNode.NextSibling.Data[1:]
