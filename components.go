@@ -9,11 +9,13 @@ type component struct {
 func Component(
 	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
 ) *component {
-	c, _ := processFuncs(
-		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), nil,
+	var c component
+
+	processFuncs(
+		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), &c, nil,
 	)
 
-	return c
+	return &c
 }
 
 type wrapper struct {
@@ -25,10 +27,11 @@ func Wrapper(
 	css CSS, htmlFlags HTMLCompressFlag, html HTML, markers ...Marker,
 ) *wrapper {
 
+	var c component
 	var w wrapper
 
-	_, _ = processFuncs(
-		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), &w,
+	processFuncs(
+		css, compressHTML(htmlFlags, html), toInternalMarkers(markers), &c, &w,
 	)
 
 	return &w

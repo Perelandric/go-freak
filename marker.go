@@ -61,11 +61,10 @@ var re = regexp.MustCompile(
 )
 
 func processFuncs(
-	css CSS, html string, markerFuncs []*marker, wrapper *wrapper,
-) (c1 *component, c2 *component) {
+	css CSS, html string, markerFuncs []*marker, c *component, wrapper *wrapper,
+) {
 
 	var isWrapper = wrapper != nil
-	c1 = &component{}
 
 	const unblanaced = "Unbalanced Wrapper start and end points"
 	const onlyWrapperGetsContent = "Only a Wrapper component may define a '${}' content marker"
@@ -124,7 +123,7 @@ func processFuncs(
 
 			markerIndexAfterContent = markerIndex
 
-			c1.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
+			c.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
 
 			htmlPrefixStartIdx = match[1]
 			continue
@@ -169,28 +168,28 @@ func processFuncs(
 
 	// Align memory of markers slice
 	var aligned = make([]marker, len(markerFuncs), len(markerFuncs))
-	c1.markers = make([]*marker, len(markerFuncs), len(markerFuncs))
+	c.markers = make([]*marker, len(markerFuncs), len(markerFuncs))
 	for i, m := range markerFuncs {
 		aligned[i] = *m
-		c1.markers[i] = &aligned[i]
+		c.markers[i] = &aligned[i]
 	}
 
 	if !isWrapper {
-		c1.htmlTail = []byte(html[htmlPrefixStartIdx:])
+		c.htmlTail = []byte(html[htmlPrefixStartIdx:])
 
-		stringCacheInsert(&c1.htmlTail)
+		stringCacheInsert(&c.htmlTail)
 
-		c1.maxWrapperNesting = maxWrapperNesting
-		return c1, nil
+		c.maxWrapperNesting = maxWrapperNesting
+		return
 	}
 
 	wrapper.preContent = component{
-		markers:           c1.markers[0:markerIndexAfterContent],
-		htmlTail:          c1.htmlTail,
+		markers:           c.markers[0:markerIndexAfterContent],
+		htmlTail:          c.htmlTail,
 		maxWrapperNesting: maxWrapperNesting,
 	}
 	wrapper.postContent = component{
-		markers:           c1.markers[markerIndexAfterContent:],
+		markers:           c.markers[markerIndexAfterContent:],
 		htmlTail:          []byte(html[htmlPrefixStartIdx:]),
 		maxWrapperNesting: maxWrapperNesting,
 	}
@@ -198,7 +197,7 @@ func processFuncs(
 	stringCacheInsert(&wrapper.preContent.htmlTail)
 	stringCacheInsert(&wrapper.postContent.htmlTail)
 
-	return nil, nil
+	return
 }
 
 func giveEndIndexToMarkerStart(index int, markers []*marker) {
