@@ -1,14 +1,29 @@
 package freak
 
+type css struct {
+	css string
+}
+type js struct {
+	js string
+}
+
+func CSS(s string) css {
+	return css{s}
+}
+
+func JS(s string) js {
+	return js{s}
+}
+
 type component struct {
 	markers           []*marker
 	htmlTail          []byte
 	maxWrapperNesting int
 }
 
-func Component(css, js string, html htmlCompress, markers ...Marker) *component {
+func Component(css css, js js, html htmlCompress, markers ...Marker) *component {
 	var c component
-	processFuncs(css, js, html.compress(), markers, &c, nil)
+	processFuncs(css.css, js.js, html.compress(), markers, &c, nil)
 	return &c
 }
 
