@@ -61,10 +61,10 @@ func (h *html) Extreme() *html {
 	return h
 }
 
-func (hc *html) compress(level uint8) string {
+func (hc *html) compress(level uint8) {
 	if hc.level.isZero() == false {
 		// already compressed
-		return hc.out
+		return
 	}
 	hc.level = htmlFlagHolder{level}
 
@@ -112,7 +112,7 @@ func (hc *html) compress(level uint8) string {
 	var buf strings.Builder
 	hc.render(node, &buf)
 
-	return buf.String()
+	hc.out = buf.String()
 }
 
 var reTag = regexp.MustCompile(`<(!(--)?)?[a-zA-Z][a-zA-Z0-9]*`)
