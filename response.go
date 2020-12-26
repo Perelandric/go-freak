@@ -12,7 +12,7 @@ import (
 type state struct {
 	flags stateFlag
 }
-type stateFlag uint16
+type stateFlag uint8
 
 func (s *state) set(flags stateFlag) {
 	s.flags |= flags
