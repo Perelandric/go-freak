@@ -101,7 +101,7 @@ func (hc *html) compress(level uint8) {
 	// If comments are to be removed, we do it first so that newly adjacent text
 	// nodes can be joined together, making space removal more accurante
 	if hc.level.hasAny(compressComments) {
-		removeComments(node)
+		node = removeComments(node)
 	}
 
 	// If whitespace is to be compressed, we do it first since it may impact tag omission
@@ -394,24 +394,7 @@ func removeNode(n *html_parser.Node) (prev, next *html_parser.Node) {
 	return prev, next
 }
 
-func joinNextAdjacentTextNode(tn *html_parser.Node) (*html_parser.Node, *html_parser.Node) {
-	if tn == nil {
-		return nil, nil
-	}
-
-	var next = tn.NextSibling
-	if next == nil || tn.Type != html_parser.TextNode || next.Type != html_parser.TextNode {
-		return tn, next
-	}
-
-	// The given and its next sibling are both text nodes
-	tn.Data += next.Data
-	removeNode(next)
-
-	return tn, tn.NextSibling
-}
-
-func removeComments(n *html_parser.Node) {
+func removeComments(n *html_parser.Node) *html_parser.Node {
 	currNode := n
 
 	for currNode != nil {
@@ -427,10 +410,20 @@ func removeComments(n *html_parser.Node) {
 
 		// If prev and its new sibling are text nodes, join their text into prev
 		// and remove that sibling
-		_, next = joinNextAdjacentTextNode(prev)
+		for prev != nil && next != nil && prev.Type == html_parser.TextNode && next.Type == html_parser.TextNode {
+			prev.Data += next.Data
+			prev, next = removeNode(next)
+		}
+
+		if currNode == n {
+			// We're on the first node that was passed in, so update it for the return value
+			n = next
+		}
 
 		currNode = next
 	}
+
+	return n
 }
 
 var reSpaces = regexp.MustCompile(`\s+`)
