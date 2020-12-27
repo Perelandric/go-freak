@@ -228,7 +228,8 @@ func (hc *html) canElideOpener(n *html_parser.Node) bool {
 		// by a tbody, thead, or tfoot element whose end tag has been omitted. (It can't
 		// be omitted if the element is empty.)
 
-		return false // TODO: Implement
+		return isOneOf(n.FirstChild, atom.Tr) &&
+			!(isOneOf(n.PrevSibling, atom.Tbody, atom.Thead, atom.Tfoot) && hc.canElideCloser(n.PrevSibling))
 
 	default:
 		return false
