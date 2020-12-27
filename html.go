@@ -212,7 +212,7 @@ func (hc *html) canElideOpener(n *html_parser.Node) bool {
 		return n.FirstChild == nil ||
 			(n.FirstChild.Type != html_parser.CommentNode &&
 				!firstCharIsSpace(n.FirstChild) &&
-				!isOneOf(n.FirstChild, atom.Script, atom.Style))
+				!nodeIsOneOf(n.FirstChild, atom.Script, atom.Style))
 
 	case atom.Colgroup:
 		// A colgroup element's start tag may be omitted if the first thing inside the
@@ -220,8 +220,8 @@ func (hc *html) canElideOpener(n *html_parser.Node) bool {
 		// preceded by another colgroup element whose end tag has been omitted. (It
 		// can't be omitted if the element is empty.)
 
-		return isOneOf(n.FirstChild, atom.Col) &&
-			!(isOneOf(n.PrevSibling, atom.Colgroup) && hc.canElideCloser(n.PrevSibling))
+		return nodeIsOneOf(n.FirstChild, atom.Col) &&
+			!(nodeIsOneOf(n.PrevSibling, atom.Colgroup) && hc.canElideCloser(n.PrevSibling))
 
 	case atom.Tbody:
 		// A tbody element's start tag may be omitted if the first thing inside the
@@ -229,8 +229,8 @@ func (hc *html) canElideOpener(n *html_parser.Node) bool {
 		// by a tbody, thead, or tfoot element whose end tag has been omitted. (It can't
 		// be omitted if the element is empty.)
 
-		return isOneOf(n.FirstChild, atom.Tr) &&
-			!(isOneOf(n.PrevSibling, atom.Tbody, atom.Thead, atom.Tfoot) && hc.canElideCloser(n.PrevSibling))
+		return nodeIsOneOf(n.FirstChild, atom.Tr) &&
+			!(nodeIsOneOf(n.PrevSibling, atom.Tbody, atom.Thead, atom.Tfoot) && hc.canElideCloser(n.PrevSibling))
 
 	default:
 		return false
@@ -259,7 +259,7 @@ func (hc *html) canElideCloser(n *html_parser.Node) bool {
 		// immediately followed by a space character or a comment.
 		//
 		// The not `FORM` test is for the sake of IE9 and lower
-		return !isOneOf(next, atom.Form) && !firstCharIsSpace(next) // With compression, comments are removed
+		return !nodeIsOneOf(next, atom.Form) && !firstCharIsSpace(next) // With compression, comments are removed
 
 	case atom.Body:
 		// A body element's end tag may be omitted if the body element is not
@@ -270,18 +270,18 @@ func (hc *html) canElideCloser(n *html_parser.Node) bool {
 		// An li element's end tag may be omitted if the li element is immediately
 		// followed by another li element or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Li)
+		return next == nil || nodeIsOneOf(next, atom.Li)
 
 	case atom.Dt:
 		// A dt element's end tag may be omitted if the dt element is immediately
 		// followed by another dt element or a dd element.
-		return isOneOf(next, atom.Dt, atom.Dd)
+		return nodeIsOneOf(next, atom.Dt, atom.Dd)
 
 	case atom.Dd:
 		// A dd element's end tag may be omitted if the dd element is immediately
 		// followed by another dd element or a dt element, or if there is no more
 		// content in the parent element.
-		return next == nil || isOneOf(next, atom.Dd, atom.Dt)
+		return next == nil || nodeIsOneOf(next, atom.Dd, atom.Dt)
 
 	case atom.P:
 		// A p element's end tag may be omitted if the p element is immediately followed
@@ -305,26 +305,26 @@ func (hc *html) canElideCloser(n *html_parser.Node) bool {
 		// An rt element's end tag may be omitted if the rt element is immediately
 		// followed by an rt or rp element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Rt, atom.Rp)
+		return next == nil || nodeIsOneOf(next, atom.Rt, atom.Rp)
 
 	case atom.Rp:
 		// An rp element's end tag may be omitted if the rp element is immediately
 		// followed by an rt or rp element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Rt, atom.Rp)
+		return next == nil || nodeIsOneOf(next, atom.Rt, atom.Rp)
 
 	case atom.Optgroup:
 		// An optgroup element's end tag may be omitted if the optgroup element is
 		// immediately followed by another optgroup element, or if there is no more
 		// content in the parent element.
-		return next == nil || isOneOf(next, atom.Optgroup)
+		return next == nil || nodeIsOneOf(next, atom.Optgroup)
 
 	case atom.Option:
 		// An option element's end tag may be omitted if the option element is
 		// immediately followed by another option element, or if it is immediately
 		// followed by an optgroup element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Option, atom.Optgroup)
+		return next == nil || nodeIsOneOf(next, atom.Option, atom.Optgroup)
 
 	case atom.Colgroup:
 		// A colgroup element's end tag may be omitted if the colgroup element is not
@@ -334,37 +334,37 @@ func (hc *html) canElideCloser(n *html_parser.Node) bool {
 	case atom.Thead:
 		// A thead element's end tag may be omitted if the thead element is immediately
 		// followed by a tbody or tfoot element.
-		return isOneOf(next, atom.Tbody, atom.Tfoot)
+		return nodeIsOneOf(next, atom.Tbody, atom.Tfoot)
 
 	case atom.Tbody:
 		// A tbody element's end tag may be omitted if the tbody element is immediately
 		// followed by a tbody or tfoot element, or if there is no more content in the
 		// parent element.
-		return next == nil || isOneOf(next, atom.Tbody, atom.Tfoot)
+		return next == nil || nodeIsOneOf(next, atom.Tbody, atom.Tfoot)
 
 	case atom.Tfoot:
 		// A tfoot element's end tag may be omitted if the tfoot element is immediately
 		// followed by a tbody element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Tbody)
+		return next == nil || nodeIsOneOf(next, atom.Tbody)
 
 	case atom.Tr:
 		// A tr element's end tag may be omitted if the tr element is immediately
 		// followed by another tr element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Tr)
+		return next == nil || nodeIsOneOf(next, atom.Tr)
 
 	case atom.Td:
 		// A td element's end tag may be omitted if the td element is immediately
 		// followed by a td or th element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Td, atom.Th)
+		return next == nil || nodeIsOneOf(next, atom.Td, atom.Th)
 
 	case atom.Th:
 		// A th element's end tag may be omitted if the th element is immediately
 		// followed by a td or th element, or if there is no more content in the parent
 		// element.
-		return next == nil || isOneOf(next, atom.Td, atom.Th)
+		return next == nil || nodeIsOneOf(next, atom.Td, atom.Th)
 
 	default:
 		return false
@@ -568,7 +568,7 @@ func lastCharIsSpace(n *html_parser.Node) bool {
 	return isTextWithData(n) && reSpaces.MatchString(n.Data[len(n.Data)-1:])
 }
 
-func isOneOf(n *html_parser.Node, atoms ...atom.Atom) bool {
+func nodeIsOneOf(n *html_parser.Node, atoms ...atom.Atom) bool {
 	if n == nil {
 		return false
 	}
