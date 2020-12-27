@@ -197,7 +197,7 @@ func (hc *html) canElideOpener(n *html_parser.Node) bool {
 	case atom.Html:
 		// An HTML element's start tag may be omitted if the first thing inside the
 		// HTML element is not a comment.
-		return true // compression removes all comments
+		return hc.level.hasAny(compressComments) || n.FirstChild.Type != html_parser.CommentNode
 
 	case atom.Head:
 		// A HEAD element's start tag may be omitted if the element is empty, or
