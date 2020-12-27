@@ -220,7 +220,8 @@ func (hc *html) canElideOpener(n *html_parser.Node) bool {
 		// preceded by another colgroup element whose end tag has been omitted. (It
 		// can't be omitted if the element is empty.)
 
-		return false // TODO: Implement
+		return isOneOf(n.FirstChild, atom.Col) &&
+			!(isOneOf(n.PrevSibling, atom.Colgroup) && hc.canElideCloser(n.PrevSibling))
 
 	case atom.Tbody:
 		// A tbody element's start tag may be omitted if the first thing inside the
