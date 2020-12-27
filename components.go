@@ -1,5 +1,11 @@
 package freak
 
+import (
+	"io"
+	"io/fs"
+	"strings"
+)
+
 type css struct {
 	css string
 }
@@ -7,16 +13,34 @@ type js struct {
 	js string
 }
 
+func fileToString(f fs.File) string {
+	var b strings.Builder
+	io.Copy(&b, f)
+	return b.String()
+}
+
 func CSS(s string) css {
 	return css{s}
+}
+
+func CSSFile(f fs.File) css {
+	return CSS(fileToString(f))
 }
 
 func JS(s string) js {
 	return js{s}
 }
 
+func JSFile(f fs.File) js {
+	return JS(fileToString(f))
+}
+
 func HTML(s string) *html {
 	return &html{in: s, out: s}
+}
+
+func HTMLFile(f fs.File) *html {
+	return HTML(fileToString(f))
 }
 
 type component struct {
