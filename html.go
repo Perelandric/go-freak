@@ -115,39 +115,38 @@ func (hc *html) compress(level uint8) {
 	hc.out = buf.String()
 }
 
-var reTag = regexp.MustCompile(`<(!(--)?)?[a-zA-Z][a-zA-Z0-9]*`)
+var reTag = regexp.MustCompile(`(?i)<(!--|!doctype|[a-z][a-z0-9]*)`)
 
 func getContext(htm []byte) *html_parser.Node {
 	var idcs = reTag.FindIndex(htm)
-	var name []byte
+	var start = 0
+	var name string
 
 	for idcs != nil {
-		name = bytes.ToLower(htm[idcs[0]+1 : idcs[1]])
+		name = string(bytes.ToLower(htm[start+idcs[0]+1 : start+idcs[1]]))
 
-		if name[0] != '!' {
-			break // Just a regluar tag name, so break the loop
-		}
-
-		if bytes.Equal(name[1:], []byte("doctype")) {
+		if name == "!doctype" {
 			return nil // doctype decl, so it's a root
 		}
 
-		if !bytes.HasPrefix(name[1:], []byte("--")) {
-			break // Unknown '!' tag, so process as 'div'
+		if name == "!--" {
+			// HTML comment
+			var closer = bytes.Index(htm[start+idcs[1]:], []byte("-->"))
+			if closer == -1 { // Comment has no closer, so process as 'div'
+				break
+			}
+			start = start + closer + 3
+			idcs = reTag.FindIndex(htm[start:])
+			continue // Continue after the comment
 		}
 
-		// HTML comment
-		var closer = bytes.Index(htm[idcs[1]:], []byte("-->"))
-		if closer == -1 { // Comment has no closer, so process as 'div'
-			break
-		}
-		idcs = reTag.FindIndex(htm[closer+3:]) // Continue after the comment
+		break
 	}
 
 	var a = atom.Div // Default context
 
 	if len(name) != 0 {
-		switch atom.Lookup(name) {
+		switch atom.Lookup([]byte(name)) {
 		case atom.Html:
 			return nil // html tag, so it's a root
 
