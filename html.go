@@ -16,7 +16,8 @@ type htmlFlagHolder struct {
 }
 
 const (
-	compressComments = uint8(1 << iota)
+	compressAttrQuotes = uint8(1 << iota)
+	compressComments
 	compressEndTags
 	compressStartTags
 	compressWhitespace
@@ -53,11 +54,11 @@ func (h *html) Moderate() *html {
 	return h
 }
 func (h *html) Aggressive() *html {
-	h.compress(compressComments | compressWhitespace | compressEndTags)
+	h.compress(compressComments | compressWhitespace | compressAttrQuotes | compressEndTags)
 	return h
 }
 func (h *html) Extreme() *html {
-	h.compress(compressComments | compressWhitespace | compressEndTags | compressStartTags | compressWhitespaceExtreme)
+	h.compress(compressComments | compressWhitespace | compressAttrQuotes | compressEndTags | compressStartTags | compressWhitespaceExtreme)
 	return h
 }
 
@@ -499,7 +500,7 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 					}
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
-					buf.WriteString(strconv.Quote(attr.Val))
+					buf.WriteString(hc.quoteAttr(attr.Val))
 
 					// TODO: Eventually compress proper boolean attr values to nothing.
 					// 	`disabled="disabled"` or `disabled=""` becomes `disabled`
@@ -554,6 +555,13 @@ func sortAttrs(attrs []html_parser.Attribute) []html_parser.Attribute {
 	})
 
 	return attrs
+}
+
+func (hc *html) quoteAttr(val string) string {
+	if re.MatchString(val) || strings.ContainsAny(val, "\"\r\n\t ") {
+		return strconv.Quote(val)
+	}
+	return val
 }
 
 func isTextWithData(n *html_parser.Node) bool {
