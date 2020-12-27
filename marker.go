@@ -38,7 +38,7 @@ type marker struct {
 	kind            markerKind
 }
 
-var re = regexp.MustCompile(
+var reMarkerParts = regexp.MustCompile(
 	`(\${{}})|(}})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
 )
 
@@ -70,7 +70,7 @@ func processFuncs(css, js, html string, markers []Marker, c *component, wrapper 
 	var currentWrapperNesting = 0
 	var maxWrapperNesting = 0
 
-	var m = re.FindAllStringSubmatchIndex(html, -1)
+	var m = reMarkerParts.FindAllStringSubmatchIndex(html, -1)
 
 	for _, match := range m {
 
