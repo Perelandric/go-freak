@@ -49,6 +49,12 @@ type component struct {
 	maxWrapperNesting int
 }
 
+type route component
+
+func NewRoute(css css, js js, html *html, markers ...Marker) *route {
+	return (*route)(Component(css, js, html, markers...))
+}
+
 func Component(css css, js js, html *html, markers ...Marker) *component {
 	var c component
 	processFuncs(css.css, js.js, html.out, markers, &c, nil)
