@@ -3,8 +3,21 @@ package freak
 import (
 	"io"
 	"io/fs"
+	"strconv"
 	"strings"
+	"sync/atomic"
 )
+
+const freakPrefix = "freak_"
+
+var freakId uint32 = 0
+
+func nextId() string {
+	return freakPrefix + strconv.FormatUint(
+		uint64(atomic.AddUint32(&freakId, 1)),
+		16,
+	)
+}
 
 type css struct {
 	css string
@@ -44,6 +57,7 @@ func HTMLFile(f fs.File) *html {
 }
 
 type component struct {
+	compId            string
 	markers           []*marker
 	htmlTail          []byte
 	maxWrapperNesting int
@@ -56,19 +70,24 @@ func NewRoute(css css, js js, html *html, markers ...Marker) *route {
 }
 
 func Component(css css, js js, html *html, markers ...Marker) *component {
-	var c component
+	var c = component{
+		compId: nextId(),
+	}
 	processFuncs(css.css, js.js, html.out, markers, &c, nil)
 	return &c
 }
 
 type wrapper struct {
+	compId      string
 	preContent  component
 	postContent component
 }
 
 func Wrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 	var c component
-	var w wrapper
+	var w = wrapper{
+		compId: nextId(),
+	}
 	processFuncs(css.css, js.js, html.out, markers, &c, &w)
 	return &w
 }
