@@ -1,27 +1,44 @@
 package freak
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"io/fs"
-	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
+
+var allCss, allJs bytes.Buffer
+var cssMux, jsMux sync.Mutex
+
+func addToCss(id uint32, css string) {
+	var freakId = fmt.Sprintf(`[data-freak-id="%s%d"]`, freakPrefix, id)
+	css = strings.ReplaceAll(css, ":root", freakId)
+
+	cssMux.Lock()
+	defer cssMux.Unlock()
+	allCss.WriteString(css)
+}
+func addToJs(id uint32, js string) {
+	jsMux.Lock()
+	defer jsMux.Unlock()
+	allJs.WriteString(js)
+}
 
 const freakPrefix = "freak_"
 
 var freakId uint32 = 0
 
-func nextId() string {
-	return freakPrefix + strconv.FormatUint(
-		uint64(atomic.AddUint32(&freakId, 1)),
-		16,
-	)
+func nextId() uint32 {
+	return atomic.AddUint32(&freakId, 1)
 }
 
 type css struct {
 	css string
 }
+
 type js struct {
 	js string
 }
@@ -57,7 +74,7 @@ func HTMLFile(f fs.File) *html {
 }
 
 type component struct {
-	compId            string
+	compId            uint32
 	markers           []*marker
 	htmlTail          []byte
 	maxWrapperNesting int
@@ -73,12 +90,14 @@ func Component(css css, js js, html *html, markers ...Marker) *component {
 	var c = component{
 		compId: nextId(),
 	}
-	processFuncs(css.css, js.js, html.out, markers, &c, nil)
+	addToCss(c.compId, css.css)
+	addToJs(c.compId, js.js)
+	processFuncs(html.out, markers, &c, nil)
 	return &c
 }
 
 type wrapper struct {
-	compId      string
+	compId      uint32
 	preContent  component
 	postContent component
 }
@@ -88,6 +107,8 @@ func Wrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 	var w = wrapper{
 		compId: nextId(),
 	}
-	processFuncs(css.css, js.js, html.out, markers, &c, &w)
+	addToCss(c.compId, css.css)
+	addToJs(w.compId, js.js)
+	processFuncs(html.out, markers, &c, &w)
 	return &w
 }

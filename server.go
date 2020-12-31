@@ -1,7 +1,6 @@
 package freak
 
 import (
-	"bytes"
 	"fmt"
 	"net/http"
 	"os"
@@ -51,7 +50,7 @@ type server struct {
 	compressionLevel int
 	binaryPath       string // Path leading to the application binary's directory
 
-	js, css         bytes.Buffer // TODO: I think these will eventually be a per-root-route buffer
+	js, css         []byte // TODO: I think these will eventually be a per-root-route buffer
 	cssPath, jsPath string
 
 	isStarted bool
@@ -177,6 +176,14 @@ func (s *server) start() error {
 	for _, pth := range []string{"/sitemap.xml", "/favicon.ico", "/robots.txt"} {
 		s.routes[pth] = &freakHandler{staticFilePath: pth}
 	}
+
+	cssMux.Lock()
+	s.css = allCss.Bytes()
+	cssMux.Unlock()
+
+	jsMux.Lock()
+	s.js = allJs.Bytes()
+	jsMux.Unlock()
 
 	var addr = s.host + ":" + s.port
 
