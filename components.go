@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -82,11 +84,150 @@ type component struct {
 
 type route component
 
-func NewRoute(css css, js js, html *html, markers ...Marker) *route {
-	return (*route)(Component(css, js, html, markers...))
+type StringFunc struct {
+	Static  string
+	Dynamic func(*Response, *RouteData) string
+}
+type Page struct {
+	Head      Head
+	BodyAttrs map[string]string
+	Body      StringFunc
+}
+type Head struct {
+	Title, Style, NoScript StringFunc
+	Link, Script, Template []StringFunc
+	Meta                   Meta
+}
+type Meta struct {
+	ApplicationName string
+	Author          string
+	Description     string
+	Generator       string
+	Keywords        []string
+	Referrer        Referrer
+	ThemeColor      string
+	ColorScheme     string
+}
+type Referrer uint
+
+const (
+	NoReferrer = Referrer(1 << iota)
+	Origin
+	NoReferrerWhenDowngrade
+	OriginWhenCrossOrigin
+	SameOrigin
+	StrictOrigin
+	StritOriginWhenCrossOrigin
+	UnsafeURL
+)
+
+func (r Referrer) String() string {
+	switch r {
+	case NoReferrer:
+		return "no-referrer"
+	case Origin:
+		return "origin"
+	case NoReferrerWhenDowngrade:
+		return "no-referrer-when-downgrade"
+	case OriginWhenCrossOrigin:
+		return "origin-when-cross-origin"
+	case SameOrigin:
+		return "same-origin"
+	case StrictOrigin:
+		return "strict-origin"
+	case StritOriginWhenCrossOrigin:
+		return "strict-origin-when-cross-origin"
+	case UnsafeURL:
+		return "unsafe-url"
+	default:
+		panic("unreachable")
+	}
 }
 
-func Component(css css, js js, html *html, markers ...Marker) *component {
+func (p *Page) build() *component {
+	var markers = []Marker{}
+	var html = `<!doctype html><title>`
+
+	var addStringOrFunc = func(pre string, sf StringFunc, post string) {
+		if sf.Static == "" && sf.Dynamic == nil {
+			return
+		}
+
+		html += pre + sf.Static
+
+		if sf.Dynamic != nil {
+			markers = append(markers, Marker{
+				Name: fmt.Sprintf("{{m%d}}", len(markers)),
+				Func: sf.Dynamic,
+			})
+		}
+
+		html += post
+	}
+
+	addStringOrFunc("", p.Head.Title, "")
+
+	html += `</title><meta charset="UTF-8">`
+
+	var mVal = reflect.ValueOf(p.Head.Meta)
+	for i, ln := 0, mVal.NumField(); i < ln; i++ {
+		var fVal = mVal.Field(i)
+		var name = fVal.Type().Name()
+		var content = ""
+
+		switch v := fVal.Interface().(type) {
+		case nil:
+			continue
+		case string:
+			content = v
+		case []string:
+			content = strings.Join(v, ",")
+		case fmt.Stringer:
+			content = v.String()
+		default:
+			panic("unreachable")
+		}
+
+		if content != "" {
+			html += fmt.Sprintf(`<meta name=%q, content=%q>`, name, content)
+		}
+	}
+
+	addStringOrFunc(`<style>`, p.Head.Style, `</style>`)
+
+	for _, m := range p.Head.Link {
+		addStringOrFunc(`<link rel="stylesheet"`, m, `>`)
+	}
+	for _, m := range p.Head.Script {
+		addStringOrFunc(`<script href="`, m, `"></script>`)
+	}
+
+	addStringOrFunc(`<noscript>`, p.Head.NoScript, `</noscript>`)
+
+	for _, m := range p.Head.Template {
+		addStringOrFunc(`<template>`, m, `</template>`)
+	}
+
+	html += "<body"
+	for k, v := range p.BodyAttrs {
+		html += " " + k + "=" + strconv.Quote(v)
+	}
+
+	addStringOrFunc(">", p.Body, "</body></html>")
+
+	return NewComponent(
+		CSS(""),
+		JS(""),
+		HTML(html).Extreme(),
+		markers...,
+	)
+}
+
+func NewPage(page Page) *component {
+	return page.build()
+}
+
+func NewComponent(css css, js js, html *html, markers ...Marker) *component {
 	var c = component{
 		compId: nextId(),
 	}
@@ -102,7 +243,7 @@ type wrapper struct {
 	postContent component
 }
 
-func Wrapper(css css, js js, html *html, markers ...Marker) *wrapper {
+func NewWrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 	var c component
 	var w = wrapper{
 		compId: nextId(),
