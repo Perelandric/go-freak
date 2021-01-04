@@ -159,8 +159,12 @@ func (p *Page) build() *component {
 		html += pre + sf.Static
 
 		if sf.Dynamic != nil {
+			var markerName = fmt.Sprintf("m%d", len(markers))
+
+			html += fmt.Sprintf("${%s}", markerName)
+
 			markers = append(markers, Marker{
-				Name:    fmt.Sprintf("{{m%d}}", len(markers)),
+				Name:    markerName,
 				Dynamic: sf.Dynamic,
 			})
 		}
