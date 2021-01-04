@@ -107,7 +107,7 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 
 		case 2: // Wrapper end '}}'
 			var newMarker = &marker{
-				callback: reflect.ValueOf(nil),
+				callback: reflect.ValueOf(0),
 				kind:     wrapperEnd,
 			}
 
@@ -208,7 +208,7 @@ func removeMarkersWithNoCallback(c *component) {
 	for i := 0; i < len(c.markers); i++ {
 		var m = c.markers[i]
 
-		if !m.callback.IsNil() {
+		if m.callback.IsZero() {
 			continue
 		}
 
