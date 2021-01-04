@@ -18,8 +18,9 @@ func Wrap(fn interface{}) func(*Response, interface{}) {
 }
 
 type Marker struct {
-	Name string
-	Func interface{}
+	Name    string
+	Static  string
+	Dynamic interface{}
 }
 
 type markerKind uint8
@@ -44,12 +45,12 @@ var reMarkerParts = regexp.MustCompile(
 
 func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper) {
 	// Convert Marker slice to *marker slice
-	var markerFuncs = make([]*marker, len(markers))
+	var _markers = make([]*marker, len(markers))
 
 	for i, m := range markers {
-		markerFuncs[i] = &marker{
+		_markers[i] = &marker{
 			name:       m.Name,
-			callback:   reflect.ValueOf(m.Func),
+			callback:   reflect.ValueOf(m.Dynamic),
 			htmlPrefix: nil,
 			kind:       0,
 		}
@@ -110,8 +111,11 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 				kind:     wrapperEnd,
 			}
 
-			markerFuncs = append(append(append(
-				make([]*marker, 0, len(markerFuncs)+1), markerFuncs[0:markerIndex]...), newMarker), markerFuncs[markerIndex:]...,
+			_markers = append(append(append(
+				make([]*marker, 0, len(_markers)+1),
+				_markers[0:markerIndex]...),
+				newMarker),
+				_markers[markerIndex:]...,
 			)
 
 			currentWrapperNesting--
@@ -119,11 +123,13 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 				panic(unblanaced)
 			}
 
-			giveEndIndexToMarkerStart(markerIndex, markerFuncs)
+			giveEndIndexToMarkerStart(markerIndex, _markers)
+
+			_markers[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
 
 		case 3: // Wrapper start '${{foo'
-			markerFuncs[markerIndex].kind = wrapperStartMarker
-			checkValid(subMatch, markerFuncs, markerIndex)
+			_markers[markerIndex].kind = wrapperStartMarker
+			checkValid(subMatch, _markers, markerIndex)
 
 			currentWrapperNesting++
 
@@ -131,15 +137,21 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 				maxWrapperNesting = currentWrapperNesting
 			}
 
+			_markers[markerIndex].htmlPrefix = []byte(
+				html[htmlPrefixStartIdx:match[0]] + markers[markerIndex].Static,
+			)
+
 		case 4: // Placeholder '${bar}'
-			markerFuncs[markerIndex].kind = plainMarker
-			checkValid(subMatch, markerFuncs, markerIndex)
+			_markers[markerIndex].kind = plainMarker
+			checkValid(subMatch, _markers, markerIndex)
+
+			_markers[markerIndex].htmlPrefix = []byte(
+				html[htmlPrefixStartIdx:match[0]] + markers[markerIndex].Static,
+			)
 
 		default:
 			panic("unreachable")
 		}
-
-		markerFuncs[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
 
 		htmlPrefixStartIdx = match[1]
 		markerIndex++
@@ -149,7 +161,7 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 		panic(unblanaced)
 	}
 
-	if markerIndex != len(markerFuncs) {
+	if markerIndex != len(_markers) {
 		panic(unequalMarkersAndFuncs)
 	}
 
@@ -158,9 +170,9 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 	}
 
 	// Align memory of markers slice
-	var aligned = make([]marker, len(markerFuncs), len(markerFuncs))
-	c.markers = make([]*marker, len(markerFuncs), len(markerFuncs))
-	for i, m := range markerFuncs {
+	var aligned = make([]marker, len(_markers), len(_markers))
+	c.markers = make([]*marker, len(_markers), len(_markers))
+	for i, m := range _markers {
 		aligned[i] = *m
 		c.markers[i] = &aligned[i]
 	}
@@ -168,6 +180,7 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 	if !isWrapper {
 		c.htmlTail = []byte(html[htmlPrefixStartIdx:])
 		c.maxWrapperNesting = maxWrapperNesting
+		removeMarkersWithNoCallback(c)
 		stringCacheInsert(c)
 		return
 	}
@@ -183,9 +196,38 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 		maxWrapperNesting: maxWrapperNesting,
 	}
 
+	removeMarkersWithNoCallback(&wrapper.preContent)
+	removeMarkersWithNoCallback(&wrapper.postContent)
+
 	stringCacheInsert(&wrapper.preContent, &wrapper.postContent)
 
 	return
+}
+
+func removeMarkersWithNoCallback(c *component) {
+	for i := 0; i < len(c.markers); i++ {
+		var m = c.markers[i]
+
+		if !m.callback.IsNil() {
+			continue
+		}
+
+		if i+1 == len(c.markers) {
+			c.htmlTail = append(m.htmlPrefix, c.htmlTail...)
+			c.markers = c.markers[0 : len(c.markers)-1]
+
+		} else {
+			var nextM = c.markers[i+1]
+			nextM.htmlPrefix = append(m.htmlPrefix, nextM.htmlPrefix...)
+
+			c.markers = append(c.markers[0:i], c.markers[i+1:]...)
+			i--
+		}
+	}
+
+	if ln := len(c.markers); ln < cap(c.markers) {
+		c.markers = c.markers[0:ln:ln]
+	}
 }
 
 func giveEndIndexToMarkerStart(index int, markers []*marker) {
