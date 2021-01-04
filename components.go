@@ -89,7 +89,7 @@ type component struct {
 
 type StringFunc struct {
 	Static  string
-	Dynamic func(*Response, *RouteData) string
+	Dynamic func(*Response, *RouteData)
 }
 type Page struct {
 	Head      Head
