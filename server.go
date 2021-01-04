@@ -12,7 +12,7 @@ import (
 
 type Route struct {
 	Path        string
-	Route       *route
+	Route       *component
 	Catch404    bool
 	DisplayName string
 	Description string

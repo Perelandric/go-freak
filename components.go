@@ -87,8 +87,6 @@ type component struct {
 	maxWrapperNesting int
 }
 
-type route component
-
 type StringFunc struct {
 	Static  string
 	Dynamic func(*Response, *RouteData) string
@@ -235,7 +233,7 @@ func (p *Page) build() *component {
 	)
 }
 
-func NewPage(page Page) *component {
+func NewPage(page Page, markers ...Marker) *component {
 	return page.build()
 }
 
