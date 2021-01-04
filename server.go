@@ -70,7 +70,10 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
-	cssFile, err := os.Create(_cssInsertionPath)
+	var cssFullPath = filepath.Join(s.binaryPath, _cssInsertionPath)
+	var jsFullPath = filepath.Join(s.binaryPath, _jsInsertionPath)
+
+	cssFile, err := os.Create(cssFullPath)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +84,7 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
-	jsFile, err := os.Create(_jsInsertionPath)
+	jsFile, err := os.Create(jsFullPath)
 	if err != nil {
 		return nil, err
 	}
