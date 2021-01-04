@@ -70,6 +70,11 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
+	err = os.Mkdir(filepath.Join(s.binaryPath, "res"), os.ModeDir)
+	if err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+
 	var cssFullPath = filepath.Join(s.binaryPath, _cssInsertionPath)
 	var jsFullPath = filepath.Join(s.binaryPath, _jsInsertionPath)
 
