@@ -196,7 +196,7 @@ func (p *Page) build() *component {
 		}
 
 		if content != "" {
-			html += fmt.Sprintf(`<meta name=%q, content=%q>`, name, content)
+			html += fmt.Sprintf(`<meta name=%q content=%q>`, name, content)
 		}
 	}
 
