@@ -494,13 +494,21 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
 
+				var needSpace = true
 				for i, attr := range sortAttrs(currNode.Attr) {
-					if i == 0 || hc.level.hasNone(compressWhitespaceExtreme) {
+					if i == 0 ||
+						needSpace ||
+						hc.level.hasNone(compressWhitespaceExtreme) {
 						buf.WriteByte(' ')
 					}
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
-					buf.WriteString(hc.quoteAttr(attr.Val))
+
+					var quotedVal, wasQuoted = hc.quoteAttr(attr.Val)
+
+					buf.WriteString(quotedVal)
+
+					needSpace = !wasQuoted
 
 					// TODO: Eventually compress proper boolean attr values to nothing.
 					// 	`disabled="disabled"` or `disabled=""` becomes `disabled`
@@ -557,11 +565,11 @@ func sortAttrs(attrs []html_parser.Attribute) []html_parser.Attribute {
 	return attrs
 }
 
-func (hc *html) quoteAttr(val string) string {
+func (hc *html) quoteAttr(val string) (string, bool) {
 	if reMarkerParts.MatchString(val) || strings.ContainsAny(val, "\"\r\n\t ") {
-		return strconv.Quote(val)
+		return strconv.Quote(val), true
 	}
-	return val
+	return val, false
 }
 
 func isTextWithData(n *html_parser.Node) bool {
