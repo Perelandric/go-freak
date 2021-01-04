@@ -142,6 +142,7 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 			)
 
 		case 4: // Placeholder '${bar}'
+
 			_markers[markerIndex].kind = plainMarker
 			checkValid(subMatch, _markers, markerIndex)
 
@@ -208,7 +209,7 @@ func removeMarkersWithNoCallback(c *component) {
 	for i := 0; i < len(c.markers); i++ {
 		var m = c.markers[i]
 
-		if m.callback.IsZero() {
+		if m.callback.IsZero() == false {
 			continue
 		}
 
