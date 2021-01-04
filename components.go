@@ -143,7 +143,7 @@ func (r Referrer) String() string {
 	case UnsafeURL:
 		return "unsafe-url"
 	default:
-		panic("unreachable")
+		return ""
 	}
 }
 
@@ -181,6 +181,10 @@ func (p *Page) build() *component {
 		switch v := fVal.Interface().(type) {
 		case nil:
 			continue
+		case Referrer:
+			if v != 0 {
+				content = v.String()
+			}
 		case string:
 			content = v
 		case []string:
