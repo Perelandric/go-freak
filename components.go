@@ -15,6 +15,11 @@ import (
 var allCss, allJs bytes.Buffer
 var cssMux, jsMux sync.Mutex
 
+const _resDir = "/res/"
+
+const _cssInsertionPath = _resDir + "freak-css.css"
+const _jsInsertionPath = _resDir + "freak-js.js"
+
 func addToCss(id uint32, css string) {
 	var freakId = fmt.Sprintf(`[data-freak-id="%s%d"]`, freakPrefix, id)
 	css = strings.ReplaceAll(css, ":root", freakId)
@@ -196,11 +201,18 @@ func (p *Page) build() *component {
 	addStringOrFunc(`<style>`, p.Head.Style, `</style>`)
 
 	for _, m := range p.Head.Link {
-		addStringOrFunc(`<link rel="stylesheet"`, m, `>`)
+		addStringOrFunc(`<link rel="stylesheet" href="`, m, `">`)
 	}
+
+	// For the accumulated CSS. The server responds directly with this
+	html += `<link rel="stylesheet" href="` + _cssInsertionPath + `">`
+
 	for _, m := range p.Head.Script {
-		addStringOrFunc(`<script href="`, m, `"></script>`)
+		addStringOrFunc(`<script src="`, m, `"></script>`)
 	}
+
+	// For the accumulated JS. The server responds directly with this
+	html += `<script src="` + _jsInsertionPath + `"></script>`
 
 	addStringOrFunc(`<noscript>`, p.Head.NoScript, `</noscript>`)
 

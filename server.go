@@ -50,9 +50,6 @@ type server struct {
 	compressionLevel int
 	binaryPath       string // Path leading to the application binary's directory
 
-	js, css         []byte // TODO: I think these will eventually be a per-root-route buffer
-	cssPath, jsPath string
-
 	isStarted bool
 }
 
@@ -69,6 +66,28 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 	var err error
 
 	s.binaryPath, err = filepath.Abs(filepath.Dir(os.Args[0]))
+	if err != nil {
+		return nil, err
+	}
+
+	cssFile, err := os.Create(_cssInsertionPath)
+	if err != nil {
+		return nil, err
+	}
+	defer cssFile.Close()
+
+	_, err = cssFile.Write(allCss.Bytes())
+	if err != nil {
+		return nil, err
+	}
+
+	jsFile, err := os.Create(_jsInsertionPath)
+	if err != nil {
+		return nil, err
+	}
+	defer jsFile.Close()
+
+	_, err = jsFile.Write(allJs.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -176,14 +195,6 @@ func (s *server) start() error {
 	for _, pth := range []string{"/sitemap.xml", "/favicon.ico", "/robots.txt"} {
 		s.routes[pth] = &freakHandler{staticFilePath: pth}
 	}
-
-	cssMux.Lock()
-	s.css = allCss.Bytes()
-	cssMux.Unlock()
-
-	jsMux.Lock()
-	s.js = allJs.Bytes()
-	jsMux.Unlock()
 
 	var addr = s.host + ":" + s.port
 
