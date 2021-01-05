@@ -106,11 +106,11 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 			c.htmlTail = []byte(html[htmlPrefixStartIdx:match[0]])
 
 			htmlPrefixStartIdx = match[1]
-			continue
 
 		case 2: // Wrapper end '}}'
 			var newMarker = &marker{
-				callback: reflect.ValueOf(0),
+				// callback never gets called, but the marker must not get removed
+				callback: reflect.ValueOf(func() {}),
 				kind:     wrapperEnd,
 			}
 
@@ -129,6 +129,8 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 			giveEndIndexToMarkerStart(markerIndex, _markers)
 
 			_markers[markerIndex].htmlPrefix = []byte(html[htmlPrefixStartIdx:match[0]])
+			htmlPrefixStartIdx = match[1]
+			markerIndex++
 
 		case 3: // Wrapper start '${{foo'
 			_markers[markerIndex].kind = wrapperStartMarker
@@ -143,22 +145,22 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 			_markers[markerIndex].htmlPrefix = []byte(
 				html[htmlPrefixStartIdx:match[0]] + markers[markerIndex].Static,
 			)
+			htmlPrefixStartIdx = match[1]
+			markerIndex++
 
 		case 4: // Placeholder '${bar}'
-
 			_markers[markerIndex].kind = plainMarker
 			checkValid(subMatch, _markers, markerIndex)
 
 			_markers[markerIndex].htmlPrefix = []byte(
 				html[htmlPrefixStartIdx:match[0]] + markers[markerIndex].Static,
 			)
+			htmlPrefixStartIdx = match[1]
+			markerIndex++
 
 		default:
 			panic("unreachable")
 		}
-
-		htmlPrefixStartIdx = match[1]
-		markerIndex++
 	}
 
 	if currentWrapperNesting != 0 {
