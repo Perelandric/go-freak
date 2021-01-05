@@ -70,33 +70,13 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
+	err = s.writeCssAndJs()
+	if err != nil {
+		return nil, err
+	}
+
 	err = os.Mkdir(filepath.Join(s.binaryPath, "res"), os.ModeDir)
 	if err != nil && !os.IsExist(err) {
-		return nil, err
-	}
-
-	var cssFullPath = filepath.Join(s.binaryPath, _cssInsertionPath)
-	var jsFullPath = filepath.Join(s.binaryPath, _jsInsertionPath)
-
-	cssFile, err := os.Create(cssFullPath)
-	if err != nil {
-		return nil, err
-	}
-	defer cssFile.Close()
-
-	_, err = cssFile.Write(allCss.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	jsFile, err := os.Create(jsFullPath)
-	if err != nil {
-		return nil, err
-	}
-	defer jsFile.Close()
-
-	_, err = jsFile.Write(allJs.Bytes())
-	if err != nil {
 		return nil, err
 	}
 
@@ -184,11 +164,42 @@ func (s *server) setRoutePaths(pth string, fh *freakHandler) error {
 	return nil
 }
 
+func (s *server) writeCssAndJs() error {
+
+	var cssFullPath = filepath.Join(s.binaryPath, _cssInsertionPath)
+	var jsFullPath = filepath.Join(s.binaryPath, _jsInsertionPath)
+
+	cssFile, err := os.Create(cssFullPath)
+	if err != nil {
+		return err
+	}
+	defer cssFile.Close()
+
+	_, err = cssFile.Write(allCss.Bytes())
+	if err != nil {
+		return err
+	}
+
+	jsFile, err := os.Create(jsFullPath)
+	if err != nil {
+		return err
+	}
+	defer jsFile.Close()
+
+	_, err = jsFile.Write(allJs.Bytes())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *server) start() error {
 	if s.isStarted {
 		// TODO: Log message
 		return nil
 	}
+
 	s.isStarted = true
 
 	fmt.Println("Starting server...")
