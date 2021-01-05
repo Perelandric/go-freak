@@ -54,6 +54,9 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 			htmlPrefix: nil,
 			kind:       0,
 		}
+		if m.Dynamic == nil {
+			_markers[i].callback = reflect.ValueOf(0)
+		}
 	}
 
 	var isWrapper = wrapper != nil
