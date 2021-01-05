@@ -70,13 +70,13 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
-	err = s.writeCssAndJs()
-	if err != nil {
+	err = os.Mkdir(filepath.Join(s.binaryPath, "res"), os.ModeDir)
+	if err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 
-	err = os.Mkdir(filepath.Join(s.binaryPath, "res"), os.ModeDir)
-	if err != nil && !os.IsExist(err) {
+	err = s.writeCssAndJs()
+	if err != nil {
 		return nil, err
 	}
 
