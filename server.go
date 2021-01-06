@@ -1,6 +1,7 @@
 package freak
 
 import (
+	_ "embed"
 	"fmt"
 	"net/http"
 	"os"
@@ -188,9 +189,17 @@ func (s *server) writeCssAndJs() (err error) {
 	}
 	defer s.js.Close()
 
-	_, err = fmt.Fprintf(s.js, `const freak=new Map([%s]);`, allJs.String())
+	_, err = fmt.Fprintf(
+		s.js,
+		`const freak={loaders:new Map([%s])};%s`,
+		allJs.String(),
+		jslib,
+	)
 	return err
 }
+
+//go:embed
+var jslib string
 
 func (s *server) start() error {
 	if s.isStarted {
