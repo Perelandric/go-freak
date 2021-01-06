@@ -147,19 +147,21 @@ func (r Referrer) String() string {
 
 func (p *Page) build() *component {
 	var markers = []Marker{}
-	var html = `<!doctype html><title>`
+	var html strings.Builder
+	html.WriteString(`<!doctype html><title>`)
 
 	var addStringOrFunc = func(pre string, sf StringFunc, post string) {
 		if sf.Static == "" && sf.Dynamic == nil {
 			return
 		}
 
-		html += pre + sf.Static
+		html.WriteString(pre)
+		html.WriteString(sf.Static)
 
 		if sf.Dynamic != nil {
 			var markerName = fmt.Sprintf("m%d", len(markers))
 
-			html += fmt.Sprintf("${%s}", markerName)
+			fmt.Fprintf(&html, "${%s}", markerName)
 
 			markers = append(markers, Marker{
 				Name:    markerName,
@@ -167,12 +169,12 @@ func (p *Page) build() *component {
 			})
 		}
 
-		html += post
+		html.WriteString(post)
 	}
 
 	addStringOrFunc("", p.Head.Title, "")
 
-	html += `</title><meta charset="UTF-8">`
+	html.WriteString(`</title><meta charset="UTF-8">`)
 
 	var mVal = reflect.ValueOf(p.Head.Meta)
 	for i, ln := 0, mVal.NumField(); i < ln; i++ {
@@ -198,7 +200,7 @@ func (p *Page) build() *component {
 		}
 
 		if content != "" {
-			html += fmt.Sprintf(`<meta name=%q content=%q>`, name, content)
+			fmt.Fprintf(&html, `<meta name=%q content=%q>`, name, content)
 		}
 	}
 
@@ -209,14 +211,18 @@ func (p *Page) build() *component {
 	}
 
 	// For the accumulated CSS. The server responds directly with this
-	html += `<link rel="stylesheet" href="` + _cssInsertionPath + `">`
+	html.WriteString(`<link rel="stylesheet" href="`)
+	html.WriteString(_cssInsertionPath)
+	html.WriteByte('>')
 
 	for _, m := range p.Head.Script {
 		addStringOrFunc(`<script src="`, m, `"></script>`)
 	}
 
 	// For the accumulated JS. The server responds directly with this
-	html += `<script src="` + _jsInsertionPath + `"></script>`
+	html.WriteString(`<script src="`)
+	html.WriteString(_jsInsertionPath)
+	html.WriteString(`"></script>`)
 
 	addStringOrFunc(`<noscript>`, p.Head.NoScript, `</noscript>`)
 
@@ -224,20 +230,20 @@ func (p *Page) build() *component {
 		addStringOrFunc(`<template>`, m, `</template>`)
 	}
 
-	html += "<body"
+	html.WriteString("<body")
 	for k, v := range p.BodyAttrs {
-		html += " " + k + "=" + strconv.Quote(v)
+		fmt.Fprintf(&html, " %s=%q", k, v)
 	}
-	html += ">"
+	html.WriteByte('>')
 
 	addStringOrFunc("", p.Body, "")
 
-	html += "</body></html>"
+	html.WriteString("</body></html>")
 
 	return NewComponent(
 		CSS(""),
 		JS(""),
-		HTML(html).Extreme(),
+		HTML(html.String()).Extreme(),
 		markers...,
 	)
 }
