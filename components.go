@@ -226,8 +226,9 @@ func (p *Page) build() *component {
 
 	html += "<body"
 	for k, v := range p.BodyAttrs {
-		html += " " + k + "=" + strconv.Quote(v) + ">"
+		html += " " + k + "=" + strconv.Quote(v)
 	}
+	html += ">"
 
 	addStringOrFunc("", p.Body, "")
 
