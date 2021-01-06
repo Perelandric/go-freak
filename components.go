@@ -213,7 +213,7 @@ func (p *Page) build() *component {
 	// For the accumulated CSS. The server responds directly with this
 	html.WriteString(`<link rel="stylesheet" href="`)
 	html.WriteString(_cssInsertionPath)
-	html.WriteByte('>')
+	html.WriteString(`">`)
 
 	for _, m := range p.Head.Script {
 		addStringOrFunc(`<script src="`, m, `"></script>`)
