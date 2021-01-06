@@ -215,6 +215,8 @@ func (p *Page) build() *component {
 	html.WriteString(_cssInsertionPath)
 	html.WriteString(`">`)
 
+	html.WriteString(`<script>const freak={}</script>`)
+
 	for _, m := range p.Head.Script {
 		addStringOrFunc(`<script src="`, m, `"></script>`)
 	}
