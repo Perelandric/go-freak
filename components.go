@@ -29,6 +29,10 @@ const _cssInsertionPath = _resDir + "freak-css.css"
 const _jsInsertionPath = _resDir + "freak-js.js"
 
 func addToCss(id string, css string) {
+	if len(css) == 0 {
+		return
+	}
+
 	var freakDataAttr = fmt.Sprintf(`[data-freak-id="%s%s"]`, freakPrefix, id)
 	css = strings.ReplaceAll(css, ":root", freakDataAttr)
 
@@ -38,6 +42,10 @@ func addToCss(id string, css string) {
 	allCss.WriteString(css)
 }
 func addToJs(id string, js string) {
+	if len(js) == 0 {
+		return
+	}
+
 	var newJS = strings.Replace(js, "export default", "return ", 1)
 	newJS = fmt.Sprintf(";freak.%s=((freak)=>{%s}(freak));", id, newJS)
 
