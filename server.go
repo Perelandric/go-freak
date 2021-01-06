@@ -50,6 +50,8 @@ type server struct {
 	compressionLevel int
 	binaryPath       string // Path leading to the application binary's directory
 
+	css, js *os.File
+
 	isStarted bool
 }
 
@@ -164,29 +166,29 @@ func (s *server) setRoutePaths(pth string, fh *freakHandler) error {
 	return nil
 }
 
-func (s *server) writeCssAndJs() error {
+func (s *server) writeCssAndJs() (err error) {
 
 	var cssFullPath = filepath.Join(s.binaryPath, _cssInsertionPath)
 	var jsFullPath = filepath.Join(s.binaryPath, _jsInsertionPath)
 
-	cssFile, err := os.Create(cssFullPath)
+	s.css, err = os.Create(cssFullPath)
 	if err != nil {
 		return err
 	}
-	defer cssFile.Close()
+	defer s.css.Close()
 
-	_, err = cssFile.Write(allCss.Bytes())
+	_, err = s.css.Write(allCss.Bytes())
 	if err != nil {
 		return err
 	}
 
-	jsFile, err := os.Create(jsFullPath)
+	s.js, err = os.Create(jsFullPath)
 	if err != nil {
 		return err
 	}
-	defer jsFile.Close()
+	defer s.js.Close()
 
-	_, err = jsFile.Write(allJs.Bytes())
+	_, err = s.js.Write(allJs.Bytes())
 	if err != nil {
 		return err
 	}
@@ -200,13 +202,16 @@ func (s *server) start() error {
 		return nil
 	}
 
+	defer os.Remove(s.css.Name())
+	defer os.Remove(s.js.Name())
+
 	s.isStarted = true
 
 	fmt.Println("Starting server...")
 
 	// All fragments should have been initialized, so we have a master list of
 	// pointers to all the static HTML.
-	locateSubstrings() // TODO: Implement this..........
+	locateSubstrings()
 
 	fmt.Println("Working directory:", s.binaryPath)
 
