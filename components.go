@@ -11,8 +11,6 @@ import (
 	"sync/atomic"
 )
 
-const freakPrefix = "freak_"
-
 var freakId uint32 = 0
 
 func nextId() string {
@@ -32,7 +30,7 @@ func addToCss(id string, css string) {
 		return
 	}
 
-	var freakDataAttr = fmt.Sprintf(`[data-freak-id="%s%s"]`, freakPrefix, id)
+	var freakDataAttr = fmt.Sprintf(`[data-freak-css=%q]`, id)
 	css = strings.ReplaceAll(css, ":root", freakDataAttr)
 
 	cssMux.Lock()
