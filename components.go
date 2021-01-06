@@ -12,6 +12,14 @@ import (
 	"sync/atomic"
 )
 
+const freakPrefix = "freak_"
+
+var freakId uint32 = 0
+
+func nextId() string {
+	return strconv.FormatUint(uint64(atomic.AddUint32(&freakId, 1)), 16)
+}
+
 var allCss, allJs bytes.Buffer
 var cssMux, jsMux sync.Mutex
 
@@ -20,26 +28,23 @@ const _resDir = "/res/"
 const _cssInsertionPath = _resDir + "freak-css.css"
 const _jsInsertionPath = _resDir + "freak-js.js"
 
-func addToCss(id uint32, css string) {
-	var freakId = fmt.Sprintf(`[data-freak-id="%s%d"]`, freakPrefix, id)
-	css = strings.ReplaceAll(css, ":root", freakId)
+func addToCss(id string, css string) {
+	var freakDataAttr = fmt.Sprintf(`[data-freak-id="%s%s"]`, freakPrefix, id)
+	css = strings.ReplaceAll(css, ":root", freakDataAttr)
 
 	cssMux.Lock()
 	defer cssMux.Unlock()
+
 	allCss.WriteString(css)
 }
-func addToJs(id uint32, js string) {
+func addToJs(id string, js string) {
+	var newJS = strings.Replace(js, "export default", "return ", 1)
+	newJS = fmt.Sprintf(";freak.%s=((freak)=>{%s}(freak));", id, newJS)
+
 	jsMux.Lock()
 	defer jsMux.Unlock()
-	allJs.WriteString(js)
-}
 
-const freakPrefix = "freak_"
-
-var freakId uint32 = 0
-
-func nextId() uint32 {
-	return atomic.AddUint32(&freakId, 1)
+	allJs.WriteString(newJS)
 }
 
 type css struct {
@@ -78,13 +83,6 @@ func HTML(s string) *html {
 
 func HTMLFile(f fs.File) *html {
 	return HTML(fileToString(f))
-}
-
-type component struct {
-	compId            uint32
-	markers           []*marker
-	htmlTail          []byte
-	maxWrapperNesting int
 }
 
 type StringFunc struct {
@@ -228,10 +226,12 @@ func (p *Page) build() *component {
 
 	html += "<body"
 	for k, v := range p.BodyAttrs {
-		html += " " + k + "=" + strconv.Quote(v)
+		html += " " + k + "=" + strconv.Quote(v) + ">"
 	}
 
-	addStringOrFunc(">", p.Body, "</body></html>")
+	addStringOrFunc("", p.Body, "")
+
+	html += "</body></html>"
 
 	return NewComponent(
 		CSS(""),
@@ -245,6 +245,13 @@ func NewPage(page Page, markers ...Marker) *component {
 	return page.build()
 }
 
+type component struct {
+	compId            string
+	markers           []*marker
+	htmlTail          []byte
+	maxWrapperNesting int
+}
+
 func NewComponent(css css, js js, html *html, markers ...Marker) *component {
 	var c = component{
 		compId: nextId(),
@@ -256,7 +263,7 @@ func NewComponent(css css, js js, html *html, markers ...Marker) *component {
 }
 
 type wrapper struct {
-	compId      uint32
+	compId      string
 	preContent  component
 	postContent component
 }
