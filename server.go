@@ -198,7 +198,7 @@ func (s *server) writeCssAndJs() (err error) {
 	return err
 }
 
-//go:embed
+//go:embed lib.js
 var jslib string
 
 func (s *server) start() error {
