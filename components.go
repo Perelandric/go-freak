@@ -46,7 +46,7 @@ func addToJs(id string, js string) {
 	}
 
 	var newJS = strings.Replace(js, "export default", "return ", 1)
-	newJS = fmt.Sprintf("freak.%s=freak=>{%s}", id, newJS)
+	newJS = fmt.Sprintf("[%q,freak=>{%s}],", id, newJS)
 
 	jsMux.Lock()
 	defer jsMux.Unlock()
@@ -221,8 +221,6 @@ func (p *Page) build() *component {
 	html.WriteString(`<link rel="stylesheet" href="`)
 	html.WriteString(_cssInsertionPath)
 	html.WriteString(`">`)
-
-	html.WriteString(`<script>const freak={}</script>`)
 
 	for _, m := range p.Head.Script {
 		addStringOrFunc(`<script src="`, m, `"></script>`)

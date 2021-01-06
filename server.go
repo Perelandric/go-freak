@@ -188,12 +188,8 @@ func (s *server) writeCssAndJs() (err error) {
 	}
 	defer s.js.Close()
 
-	_, err = s.js.Write(allJs.Bytes())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	_, err = fmt.Fprintf(s.js, `const freak=new Map([%s]);`, allJs.String())
+	return err
 }
 
 func (s *server) start() error {
