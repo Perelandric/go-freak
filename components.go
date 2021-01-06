@@ -46,7 +46,7 @@ func addToJs(id string, js string) {
 	}
 
 	var newJS = strings.Replace(js, "export default", "return ", 1)
-	newJS = fmt.Sprintf(";freak.%s=((freak)=>{%s}(freak));", id, newJS)
+	newJS = fmt.Sprintf("freak.%s=freak=>{%s}", id, newJS)
 
 	jsMux.Lock()
 	defer jsMux.Unlock()
