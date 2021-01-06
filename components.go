@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/fs"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,7 +16,7 @@ const freakPrefix = "freak_"
 var freakId uint32 = 0
 
 func nextId() string {
-	return strconv.FormatUint(uint64(atomic.AddUint32(&freakId, 1)), 16)
+	return fmt.Sprintf("f%x", atomic.AddUint32(&freakId, 1))
 }
 
 var allCss, allJs bytes.Buffer
