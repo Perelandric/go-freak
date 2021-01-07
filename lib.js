@@ -1,18 +1,30 @@
 
 ; freak.ctors = new Map
 
-freak.getCtor = function (id) {
-  var ctor = freak.ctors.get(id)
+freak.getCtor = function (idName) {
+
+  var ctor = freak.ctors.get(idName)
   if (ctor != null) {
     return ctor
   }
 
-  ctor = freak.loaders.get(id)
-  if (ctor == null) {
+  const [id, name] = idName.split("-")
+
+  const obj = freak.loaders.get(id)
+  if (obj == null) {
     console.log("expected JS loader for:", id)
-  } else {
-    freak.loaders.delete(id)
-    freak.ctors.set(id, ctor)
+    return null
+  }
+
+  ctor = obj[name]
+  if (ctor == null) {
+    console.log("expected JS constructor for:", idName)
+    return null
+  }
+
+  freak.loaders.delete(id)
+  for (const [n, c] of Object.entries(obj)) {
+    freak.ctors.set(id + "-" + n, c)
   }
 
   return ctor

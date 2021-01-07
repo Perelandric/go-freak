@@ -43,7 +43,7 @@ var reMarkerParts = regexp.MustCompile(
 	`(\${{}})|(}})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
 )
 
-func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper) {
+func processFuncs(h *html, markers []Marker, c *component, wrapper *wrapper) {
 	// Convert Marker slice to *marker slice
 	var _markers = make([]*marker, len(markers))
 
@@ -58,6 +58,10 @@ func processFuncs(html string, markers []Marker, c *component, wrapper *wrapper)
 			_markers[i].callback = reflect.ValueOf(0)
 		}
 	}
+
+	h.compress()
+
+	var html = h.out
 
 	var isWrapper = wrapper != nil
 

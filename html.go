@@ -11,12 +11,16 @@ import (
 	"golang.org/x/net/html/atom"
 )
 
+type HTMLCompress uint8
+
 type htmlFlagHolder struct {
-	_no_touchy uint8
+	_no_touchy HTMLCompress
 }
 
+const jsDataAttr = "data-freak-js"
+
 const (
-	compressAttrQuotes = uint8(1 << iota)
+	compressAttrQuotes = HTMLCompress(1 << iota)
 	compressComments
 	compressEndTags
 	compressStartTags
@@ -24,13 +28,13 @@ const (
 	compressWhitespaceExtreme
 )
 
-func (hcf htmlFlagHolder) hasAny(f uint8) bool {
+func (hcf htmlFlagHolder) hasAny(f HTMLCompress) bool {
 	return hcf._no_touchy&f != 0
 }
-func (hcf htmlFlagHolder) hasAll(f uint8) bool {
+func (hcf htmlFlagHolder) hasAll(f HTMLCompress) bool {
 	return hcf._no_touchy&f == f
 }
-func (hcf htmlFlagHolder) hasNone(f uint8) bool {
+func (hcf htmlFlagHolder) hasNone(f HTMLCompress) bool {
 	return hcf._no_touchy&f == 0
 }
 func (hcf htmlFlagHolder) isZero() bool {
@@ -38,36 +42,25 @@ func (hcf htmlFlagHolder) isZero() bool {
 }
 
 type html struct {
-	in, out string
-	level   htmlFlagHolder
+	in, out      string
+	compId       string
+	level        htmlFlagHolder
+	isCompressed bool
 }
 
-func (h *html) None() *html {
-	if !h.level.isZero() {
-		h.level._no_touchy = 0
-		h.out = h.in
-	}
-	return h
-}
-func (h *html) Moderate() *html {
-	h.compress(compressComments | compressWhitespace)
-	return h
-}
-func (h *html) Aggressive() *html {
-	h.compress(compressComments | compressWhitespace | compressAttrQuotes | compressEndTags)
-	return h
-}
-func (h *html) Extreme() *html {
-	h.compress(compressComments | compressWhitespace | compressAttrQuotes | compressEndTags | compressStartTags | compressWhitespaceExtreme)
-	return h
-}
+const (
+	None       = HTMLCompress(0)
+	Moderate   = compressComments | compressWhitespace
+	Aggressive = compressComments | compressWhitespace | compressAttrQuotes | compressEndTags
+	Extreme    = compressComments | compressWhitespace | compressAttrQuotes | compressEndTags | compressStartTags | compressWhitespaceExtreme
+)
 
-func (hc *html) compress(level uint8) {
-	if hc.level.isZero() == false {
+func (hc *html) compress() {
+	if hc.isCompressed {
 		// already compressed
 		return
 	}
-	hc.level = htmlFlagHolder{level}
+	hc.isCompressed = true
 
 	var markupStr = hc.in
 
@@ -503,6 +496,10 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 					}
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
+
+					if attr.Key == jsDataAttr && len(attr.Val) != 0 {
+						attr.Val = hc.compId + "-" + attr.Val
+					}
 
 					var quotedVal, wasQuoted = hc.quoteAttr(attr.Val)
 

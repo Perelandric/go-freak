@@ -82,12 +82,16 @@ func JSFile(f fs.File) js {
 	return JS(fileToString(f))
 }
 
-func HTML(s string) *html {
-	return &html{in: s, out: s}
+func HTML(s string, compress HTMLCompress) *html {
+	return &html{
+		in:    s,
+		out:   s,
+		level: htmlFlagHolder{_no_touchy: compress},
+	}
 }
 
-func HTMLFile(f fs.File) *html {
-	return HTML(fileToString(f))
+func HTMLFile(f fs.File, compress HTMLCompress) *html {
+	return HTML(fileToString(f), compress)
 }
 
 type StringFunc struct {
@@ -248,7 +252,7 @@ func (p *Page) build() *component {
 	return NewComponent(
 		CSS(""),
 		JS(""),
-		HTML(html.String()).Extreme(),
+		HTML(html.String(), Extreme),
 		markers...,
 	)
 }
@@ -268,9 +272,10 @@ func NewComponent(css css, js js, html *html, markers ...Marker) *component {
 	var c = component{
 		compId: nextId(),
 	}
+	html.compId = c.compId
 	addToCss(c.compId, css.css)
 	addToJs(c.compId, js.js)
-	processFuncs(html.out, markers, &c, nil)
+	processFuncs(html, markers, &c, nil)
 	return &c
 }
 
@@ -285,8 +290,9 @@ func NewWrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 	var w = wrapper{
 		compId: nextId(),
 	}
+	html.compId = w.compId
 	addToCss(c.compId, css.css)
 	addToJs(w.compId, js.js)
-	processFuncs(html.out, markers, &c, &w)
+	processFuncs(html, markers, &c, &w)
 	return &w
 }
