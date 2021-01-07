@@ -566,7 +566,9 @@ func sortAttrs(attrs []html_parser.Attribute) []html_parser.Attribute {
 }
 
 func (hc *html) quoteAttr(val string) (string, bool) {
-	if reMarkerParts.MatchString(val) || strings.ContainsAny(val, "\"\r\n\t ") {
+	if len(val) == 0 ||
+		reMarkerParts.MatchString(val) ||
+		strings.ContainsAny(val, "\"\r\n\t ") {
 		return strconv.Quote(val), true
 	}
 	return val, false
