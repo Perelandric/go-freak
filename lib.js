@@ -17,8 +17,6 @@ freak.getCtor = function (idName) {
   }
 
   const ctors = loader(freak)
-
-  ctor = obj[name]
   if (ctors == null) {
     console.log("expected one or more JS constructors for:", id)
     return null
@@ -26,7 +24,7 @@ freak.getCtor = function (idName) {
 
   freak.loaders.delete(id)
 
-  for (const [n, c] of Object.entries(obj)) {
+  for (const [n, c] of Object.entries(ctors)) {
     if (n === name) {
       ctor = c
     }
@@ -46,7 +44,7 @@ document.addEventListener("DOMContentLoaded", e => {
     const ctor = freak.getCtor(el.dataset.freakJs)
 
     if (ctor != null) {
-      new ctor(freak)
+      new ctor(el)
     }
   }
 }, { once: true });
@@ -59,7 +57,7 @@ freak.Base = class Base {
 
     // TODO: Need to have subclass to set up handlers. How?
 
-    const b = new Base(element)
+    const b = new freak.Base(element)
     b._parent = parent
     const lc = parent.lastChild
     if (lc != null) {
@@ -71,7 +69,7 @@ freak.Base = class Base {
   }
 
   static fromRoot(root) {
-    return Base._setChildren(new Base(root), root.children)
+    return freak.Base._setChildren(new freak.Base(root), root.children)
   }
 
   static _setChildren(parent, children) {
@@ -79,9 +77,9 @@ freak.Base = class Base {
       if (!(ch instanceof HTMLElement)) continue
 
       if ("subDom" in ch.dataset) {
-        Base._setChildren(Base.withParent(parent, ch), ch.children)
+        freak.Base._setChildren(freak.Base.withParent(parent, ch), ch.children)
       } else {
-        Base._setChildren(parent, ch.children)
+        freak.Base._setChildren(parent, ch.children)
       }
     }
     return parent
@@ -101,14 +99,21 @@ freak.Base = class Base {
     this._previousSibling = null
     this._nextSibling = null
 
-    Object.getOwnPropertyNames(this)
-      .filter(n => n.startsWith(Base._prefix))
-      .forEach(n => _element.addEventListener(n.slice(Base._prefix.length), this))
+    ;(function addListeners(obj) {
+      if (!obj) return
+
+      var names = Object.getOwnPropertyNames(obj)
+
+      names.filter(n => n.startsWith(freak.Base._prefix))
+      .map(n => n.slice(freak.Base._prefix.length))
+      .forEach(n => this._element.addEventListener(n, this))
+      
+      addListeners.call(this, Object.getPrototypeOf(obj))
+    }.call(this, this));
   }
 
   handleEvent(event) {
-    // this["_on_" + event.type](event)
-    this[Base._prefix + event.type](event)
+    this[freak.Base._prefix + event.type](event)
   }
 
   remove() {
@@ -258,7 +263,7 @@ freak.Base = class Base {
   }
 }
 
-freak.FormElementBase = class FormElementBase extends Base {
+freak.FormElementBase = class FormElementBase extends freak.Base {
   constructor(_element) {
     super(_element)
   }
