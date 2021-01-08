@@ -18,7 +18,7 @@ freak._getCtor = function (idName) {
 
   const ctors = loader(freak)
   if (ctors == null) {
-    console.log("expected one or more JS constructors for:", id)
+    console.log("expected JS constructors for:", id)
     return null
   }
 
