@@ -1,7 +1,7 @@
 
 ; freak.ctors = new Map
 
-freak.getCtor = function (idName) {
+freak._getCtor = function (idName) {
 
   var ctor = freak.ctors.get(idName)
   if (ctor != null) {
@@ -41,7 +41,7 @@ freak.getCtor = function (idName) {
 
 document.addEventListener("DOMContentLoaded", e => {
   for (const el of document.querySelectorAll("[data-freak-js]")) {
-    const ctor = freak.getCtor(el.dataset.freakJs)
+    const ctor = freak._getCtor(el.dataset.freakJs)
 
     if (ctor != null) {
       new ctor(el)
@@ -99,17 +99,25 @@ freak.Base = class Base {
     this._previousSibling = null
     this._nextSibling = null
 
-    ;(function addListeners(obj) {
-      if (!obj) return
+    if (this.constructor._event_types == null) {
 
-      var names = Object.getOwnPropertyNames(obj)
+      // Store list of event listener types on the ctor
+      this.constructor._event_types = 
+        (function getTypes(obj, types) {
+          if (!obj) return types
 
-      names.filter(n => n.startsWith(freak.Base._prefix))
-      .map(n => n.slice(freak.Base._prefix.length))
-      .forEach(n => this._element.addEventListener(n, this))
-      
-      addListeners.call(this, Object.getPrototypeOf(obj))
-    }.call(this, this));
+          types = types.concat(
+            Object.getOwnPropertyNames(obj)
+              .filter(n => n.startsWith(freak.Base._prefix))
+              .map(n => n.slice(freak.Base._prefix.length))
+          )
+          
+          return getTypes(Object.getPrototypeOf(obj), types)
+        }(this, []));
+    }
+
+    this.constructor._event_types
+      .forEach(n => _element.addEventListener(n, this))
   }
 
   handleEvent(event) {
