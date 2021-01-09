@@ -1,65 +1,12 @@
 
-; freak.ctors = new Map
-
-freak._getCtor = function (idName) {
-
-  var ctor = freak.ctors.get(idName)
-  if (ctor != null) {
-    return ctor
-  }
-
-  const [id, name] = idName.split("-")
-
-  const loader = freak.loaders.get(id)
-  if (loader == null) {
-    console.log("expected JS loader for:", id)
-    return null
-  }
-
-  const ctors = loader(freak)
-  if (ctors == null) {
-    console.log("expected JS constructors for:", id)
-    return null
-  }
-
-  freak.loaders.delete(id)
-
-  for (const [n, c] of Object.entries(ctors)) {
-    if (n === name) {
-      ctor = c
-    }
-
-    freak.ctors.set(id + "-" + n, c)
-  }
-
-  if (ctor == null) {
-    console.log("expected JS constructor for:", id, name)
-  }
-
-  return ctor
-}
-
-document.addEventListener("DOMContentLoaded", e => {
-  for (const el of document.querySelectorAll("[data-freak-js]")) {
-    const ctor = freak._getCtor(el.dataset.freakJs)
-
-    if (ctor != null) {
-      new ctor(el)
-    }
-  }
-}, { once: true });
-
-
-
 freak.Base = class Base {
-
   static withParent(parent, element) {
 
     // TODO: Need to have subclass to set up handlers. How?
 
-    const b = new freak.Base(element)
+    var b = new freak.Base(element)
     b._parent = parent
-    const lc = parent.lastChild
+    var lc = parent.lastChild
     if (lc != null) {
       b._previousSibling = lc
       lc._nextSibling = b
@@ -73,7 +20,9 @@ freak.Base = class Base {
   }
 
   static _setChildren(parent, children) {
-    for (const ch of children) {
+    for (var i = 0; i < children.length; i++) {
+      var ch = children[i]
+
       if (!(ch instanceof HTMLElement)) continue
 
       if ("subDom" in ch.dataset) {
@@ -89,8 +38,6 @@ freak.Base = class Base {
     return base._element
   }
 
-  static get _prefix() {return "_on_"}
-
   // TODO: this needs to do more to insert itself into this sub-dom
   constructor(_element) {
     this._element = _element
@@ -98,31 +45,16 @@ freak.Base = class Base {
     this._parent = null
     this._previousSibling = null
     this._nextSibling = null
+    
+    var thisCtor = this.constructor
 
-    if (this.constructor._event_types == null) {
+    thisCtor._event_types
+      .forEach(function(n) { _element.addEventListener(n, this) }, this)
 
-      // Store list of event listener types on the ctor
-      this.constructor._event_types = 
-        (function getTypes(obj, types) {
-          if (!obj) return types
-
-          types = types.concat(
-            Object.getOwnPropertyNames(obj)
-              .filter(n => n.startsWith(freak.Base._prefix))
-              .map(n => n.slice(freak.Base._prefix.length))
-          )
-          
-          return getTypes(Object.getPrototypeOf(obj), types)
-        }(this, []));
-    }
-
-    this.constructor._event_types
-      .forEach(n => _element.addEventListener(n, this))
+    this._handlers = thisCtor._handlers
   }
 
-  handleEvent(event) {
-    this[freak.Base._prefix + event.type](event)
-  }
+  handleEvent(event) { this._handlers[event.type](event) }
 
   remove() {
     if (this._parent) {
@@ -134,8 +66,8 @@ freak.Base = class Base {
       this._parent = null
     }
 
-    const prev = this._previousSibling
-    const next = this._nextSibling
+    var prev = this._previousSibling
+    var next = this._nextSibling
     if (next != null) {
       next._previousSibling = prev
       this._nextSibling = null
@@ -153,27 +85,33 @@ freak.Base = class Base {
   // We need to implement a full sub-dom, so that there is no using the
   // native DOM API. This means all modifications, relocations, querying,
   // and so on gets done with this API.
-  findFirst(...fns) {
-    for (const ch of this._children) {
-      if (fns.every(fn => fn(ch))) {
-        return ch
-      }
+  findFirst(fns) {
+    return _findFirst(this, Array.slice.call(argumets))
 
-      const res = ch.findFirst(...fns)
-      if (res != null) {
-        return res
+    function _findFirst(el, fns) {
+      for (var i = 0; i < this._children.length; i++) {
+        var ch = this._children[i]
+        if (fns.every(function(fn) { return fn(ch) })) {
+          return ch
+        }
+
+        const res = _findFirst(ch, fns)
+        if (res != null) {
+          return res
+        }
       }
+      return null
     }
-    return null
   }
 
-  _findLimit(limit, res, ...fns) {
-    for (const ch of this._children) {
-      if (fns.every(fn => fn(ch)) && limit === res.push(ch)) {
+  _findLimit(limit, res, fns) {
+    for (var i = 0; i < this._children.length; i++) {
+      var ch = this._children[i]
+      if (fns.every(function(fn) { return fn(ch) }) && limit === res.push(ch)) {
         break
       }
 
-      ch._findLimit(limit, res, ...fns)
+      ch._findLimit(limit, res, fns)
       if (limit === res.length) {
         break
       }
@@ -181,17 +119,18 @@ freak.Base = class Base {
     return res
   }
 
-  findLimit(limit, ...fns) {
-    const _limit = Math.max(0, ~~limit)
-    return _limit === 0 ? [] : this._findLimit(_limit, [], ...fns)
+  findLimit(limit, fns) {
+    var _limit = Math.max(0, ~~limit)
+    return _limit === 0 ? [] : 
+      this._findLimit(limit, [], Array.slice.call(arguments, 1))
   }
 
-  findAll(...fns) {
-    return this._findLimit(Infinity, [], ...fns)
+  findAll(fns) {
+    return this._findLimit(Infinity, [], array.slice.call(arguments))
   }
 
   _insert_before(toInsert, before) {
-    const parent = this
+    var parent = this
 
     toInsert.remove()
     parent._element.insertBefore(
@@ -205,11 +144,11 @@ freak.Base = class Base {
       parent._children = parent._children.concat(toInsert)
 
     } else {
-      const ch = parent._children
-      const targIdx = ch.indexOf(before) + 1
+      var ch = parent._children
+      var targIdx = ch.indexOf(before) + 1
       parent._children = ch.slice(0, targIdx).concat(toInsert, ch.slice(targIdx))
 
-      const after = before._nextSibling
+      var after = before._nextSibling
 
       toInsert._previousSibling = before
       toInsert._nextSibling = after
@@ -280,3 +219,86 @@ freak.FormElementBase = class FormElementBase extends freak.Base {
     return this._element.value
   }
 }
+
+
+freak._getCtor = function (idName) {
+
+  var ctor = freak.ctors.get(idName)
+  if (ctor != null) {
+    return ctor
+  }
+
+  var parts = idName.split("-")
+  var id = parts[0]
+  var name = parts[1]
+
+  var loader = freak.loaders.get(id)
+  if (loader == null) {
+    console.log("expected JS loader for:", id)
+    return null
+  }
+
+  var ctors = loader(freak)
+  if (ctors == null) {
+    console.log("expected JS constructors for:", id)
+    return null
+  }
+
+  freak.loaders.delete(id)
+
+  for (var n in ctors) {
+    var c = ctors[n]
+    if (n === name) {
+      ctor = c
+    }
+
+    freak._prepare_ctor(c)
+    freak.ctors.set(id + "-" + n, c)
+  }
+
+  if (ctor == null) {
+    console.log("expected JS constructor for:", id, name)
+  }
+
+  return ctor
+}
+
+freak._prepare_ctor = function(ctor) {
+
+  var prefix = "_on_"
+
+  // Store list of event listener types on the ctor
+  ctor._event_types = 
+    (function getTypes(obj, types) {
+      if (!obj) 
+        return types
+
+      types = types.concat(
+        Object.getOwnPropertyNames(obj)
+          .filter(function(n) { return n.startsWith(prefix) })
+          .map(function(n) { return n.slice(prefix.length) })
+      )
+      
+      return getTypes(Object.getPrototypeOf(obj), types)
+    }(ctor.prototype, []));
+
+  // Store event handlers on separate object
+  ctor._handlers = Object.create(null)
+  ctor._event_types.forEach(function(name) {
+    ctor._handlers[name] = ctor.prototype[prefix + name]
+  })
+}
+
+
+document.addEventListener("DOMContentLoaded", function(e) {
+  var els = document.querySelectorAll("[data-freak-js]")
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i]
+
+    const ctor = freak._getCtor(el.dataset.freakJs)
+
+    if (ctor != null) {
+      new ctor(el)
+    }
+  }
+}, { once: true });

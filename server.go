@@ -191,7 +191,7 @@ func (s *server) writeCssAndJs() (err error) {
 
 	_, err = fmt.Fprintf(
 		s.js,
-		`const freak={loaders:new Map([%s])};%s`,
+		`var freak={loaders:new Map([%s]),ctors:new Map()};%s`,
 		allJs.String(),
 		jslib,
 	)
