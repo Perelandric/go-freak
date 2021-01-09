@@ -291,7 +291,7 @@ func NewWrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 		compId: nextId(),
 	}
 	html.compId = w.compId
-	addToCss(c.compId, css.css)
+	addToCss(w.compId, css.css)
 	addToJs(w.compId, js.js)
 	processFuncs(html, markers, &c, &w)
 	return &w
