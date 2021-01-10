@@ -25,25 +25,28 @@ const _resDir = "/res/"
 const _cssInsertionPath = _resDir + "freak-css.css"
 const _jsInsertionPath = _resDir + "freak-js.js"
 
-func addToCss(id string, css string) {
-	if len(css) == 0 {
-		return
+func addToCssJs(id string, css css, js js) {
+	if len(css.css) == 0 {
+		goto doJS
 	}
 
-	var freakDataAttr = fmt.Sprintf(`[data-freak-css=%q]`, id)
-	css = strings.ReplaceAll(css, ":root", freakDataAttr)
+	css.css = strings.ReplaceAll(
+		css.css,
+		":root",
+		fmt.Sprintf(`[data-freak=%q]`, id),
+	)
 
 	cssMux.Lock()
 	defer cssMux.Unlock()
 
-	allCss.WriteString(css)
-}
-func addToJs(id string, js string) {
-	if len(js) == 0 {
+	allCss.WriteString(css.css)
+
+doJS:
+	if len(js.js) == 0 {
 		return
 	}
 
-	var newJS = strings.Replace(js, "export default", "return ", 1)
+	var newJS = strings.Replace(js.js, "export default", "return ", 1)
 	newJS = fmt.Sprintf("[%q,freak=>{%s}],", id, newJS)
 
 	jsMux.Lock()
@@ -273,8 +276,7 @@ func NewComponent(css css, js js, html *html, markers ...Marker) *component {
 		compId: nextId(),
 	}
 	html.compId = c.compId
-	addToCss(c.compId, css.css)
-	addToJs(c.compId, js.js)
+	addToCssJs(c.compId, css, js)
 	processFuncs(html, markers, &c, nil)
 	return &c
 }
@@ -291,8 +293,7 @@ func NewWrapper(css css, js js, html *html, markers ...Marker) *wrapper {
 		compId: nextId(),
 	}
 	html.compId = w.compId
-	addToCss(w.compId, css.css)
-	addToJs(w.compId, js.js)
+	addToCssJs(w.compId, css, js)
 	processFuncs(html, markers, &c, &w)
 	return &w
 }
