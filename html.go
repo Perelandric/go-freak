@@ -17,7 +17,8 @@ type htmlFlagHolder struct {
 	_no_touchy HTMLCompress
 }
 
-const jsDataAttr = "data-freak-js"
+const dataFreakAttr = "data-freak"
+const jsDataFreakAttr = "data-freak-js"
 
 const (
 	compressAttrQuotes = HTMLCompress(1 << iota)
@@ -104,7 +105,7 @@ func (hc *html) compress() {
 	}
 
 	var buf strings.Builder
-	hc.render(node, &buf)
+	hc.render(node, &buf, true)
 
 	hc.out = buf.String()
 }
@@ -449,7 +450,7 @@ func compressSpace(n *html_parser.Node, isExtreme bool) {
 	}
 }
 
-func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
+func (hc *html) render(root *html_parser.Node, buf *strings.Builder, isTop bool) {
 	for currNode := root; currNode != nil; currNode = currNode.NextSibling {
 		switch currNode.Type {
 
@@ -461,7 +462,7 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 
 		case html_parser.DocumentNode:
 			// We want to traverse its children (probably !doctype and html)
-			hc.render(currNode.FirstChild, buf)
+			hc.render(currNode.FirstChild, buf, true)
 			return
 
 		case html_parser.ElementNode:
@@ -487,6 +488,8 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 				buf.WriteByte('<')
 				buf.WriteString(currNode.Data)
 
+				hc.processFreakAttr(currNode, isTop)
+
 				var needSpace = true
 				for i, attr := range sortAttrs(currNode.Attr) {
 					if i == 0 ||
@@ -494,12 +497,9 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 						hc.level.hasNone(compressWhitespaceExtreme) {
 						buf.WriteByte(' ')
 					}
+
 					buf.WriteString(attr.Key)
 					buf.WriteByte('=')
-
-					if attr.Key == jsDataAttr && len(attr.Val) != 0 {
-						attr.Val = hc.compId + "-" + attr.Val
-					}
 
 					var quotedVal, wasQuoted = hc.quoteAttr(attr.Val)
 
@@ -515,7 +515,7 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 				buf.WriteByte('>')
 			}
 
-			hc.render(currNode.FirstChild, buf)
+			hc.render(currNode.FirstChild, buf, false)
 
 			if hc.canElideCloser(currNode) {
 
@@ -542,6 +542,34 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder) {
 			}
 		}
 	}
+}
+
+func (hc *html) processFreakAttr(node *html_parser.Node, isTop bool) {
+
+	/*
+		'data-freak="abc123"'        // top, no JS
+		'data-freak="abc123:Foo:"'   // top, with JS
+		'data-freak=":abc123:Foo:"'  // non-top, with JS
+	*/
+
+	for _, attr := range node.Attr {
+		if attr.Key == jsDataFreakAttr {
+			attr.Key = dataFreakAttr
+			attr.Val = ":" + hc.compId + ":" + attr.Val + ":"
+			if isTop {
+				attr.Val = attr.Val[1:]
+			}
+			return
+		}
+	}
+
+	if isTop {
+		node.Attr = append(node.Attr, html_parser.Attribute{
+			Key: dataFreakAttr,
+			Val: hc.compId,
+		})
+	}
+	return
 }
 
 func sortAttrs(attrs []html_parser.Attribute) []html_parser.Attribute {
