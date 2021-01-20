@@ -101,10 +101,6 @@ type StringFunc struct {
 	Static  string
 	Dynamic func(*Response, *RouteData)
 }
-type stringFunc struct {
-	pre, post string
-	StringFunc
-}
 type Head struct {
 	Title, Style, NoScript StringFunc
 	Link, Script, Template []StringFunc
