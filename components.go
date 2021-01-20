@@ -220,18 +220,14 @@ func NewPage(h Head, attrs map[string]string, content ...StringFunc) *component 
 	}
 
 	// For the accumulated CSS. The server responds directly with this
-	html.WriteString(`<link rel="stylesheet" href="`)
-	html.WriteString(_cssInsertionPath)
-	html.WriteString(`">`)
+	fmt.Fprintf(&html, `<link rel="stylesheet" href=%q>`, _cssInsertionPath)
 
 	for _, m := range h.Script {
 		addStringOrFunc(`<script src="`, m, `"></script>`)
 	}
 
 	// For the accumulated JS. The server responds directly with this
-	html.WriteString(`<script src="`)
-	html.WriteString(_jsInsertionPath)
-	html.WriteString(`"></script>`)
+	fmt.Fprintf(&html, `<script src=%q></script>`, _jsInsertionPath)
 
 	addStringOrFunc(`<noscript>`, h.NoScript, `</noscript>`)
 
