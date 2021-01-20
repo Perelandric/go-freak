@@ -101,10 +101,9 @@ type StringFunc struct {
 	Static  string
 	Dynamic func(*Response, *RouteData)
 }
-type Page struct {
-	Head      Head
-	BodyAttrs map[string]string
-	Body      StringFunc
+type stringFunc struct {
+	pre, post string
+	StringFunc
 }
 type Head struct {
 	Title, Style, NoScript StringFunc
@@ -157,11 +156,9 @@ func (r Referrer) String() string {
 	}
 }
 
-func (p *Page) build() *component {
+func NewPage(h Head, attrs map[string]string, content ...StringFunc) *component {
 	var markers = []Marker{}
 	var html strings.Builder
-	html.WriteString(`<!doctype html><title>`)
-
 	var addStringOrFunc = func(pre string, sf StringFunc, post string) {
 		if sf.Static == "" && sf.Dynamic == nil {
 			return
@@ -184,11 +181,11 @@ func (p *Page) build() *component {
 		html.WriteString(post)
 	}
 
-	addStringOrFunc("", p.Head.Title, "")
-
+	html.WriteString(`<!doctype html><title>`)
+	addStringOrFunc("", h.Title, "")
 	html.WriteString(`</title><meta charset="UTF-8">`)
 
-	var mVal = reflect.ValueOf(p.Head.Meta)
+	var mVal = reflect.ValueOf(h.Meta)
 	for i, ln := 0, mVal.NumField(); i < ln; i++ {
 		var fVal = mVal.Field(i)
 		var name = fVal.Type().Name()
@@ -216,9 +213,9 @@ func (p *Page) build() *component {
 		}
 	}
 
-	addStringOrFunc(`<style>`, p.Head.Style, `</style>`)
+	addStringOrFunc(`<style>`, h.Style, `</style>`)
 
-	for _, m := range p.Head.Link {
+	for _, m := range h.Link {
 		addStringOrFunc(`<link rel="stylesheet" href="`, m, `">`)
 	}
 
@@ -227,7 +224,7 @@ func (p *Page) build() *component {
 	html.WriteString(_cssInsertionPath)
 	html.WriteString(`">`)
 
-	for _, m := range p.Head.Script {
+	for _, m := range h.Script {
 		addStringOrFunc(`<script src="`, m, `"></script>`)
 	}
 
@@ -236,19 +233,21 @@ func (p *Page) build() *component {
 	html.WriteString(_jsInsertionPath)
 	html.WriteString(`"></script>`)
 
-	addStringOrFunc(`<noscript>`, p.Head.NoScript, `</noscript>`)
+	addStringOrFunc(`<noscript>`, h.NoScript, `</noscript>`)
 
-	for _, m := range p.Head.Template {
+	for _, m := range h.Template {
 		addStringOrFunc(`<template>`, m, `</template>`)
 	}
 
 	html.WriteString("<body")
-	for k, v := range p.BodyAttrs {
+	for k, v := range attrs {
 		fmt.Fprintf(&html, " %s=%q", k, v)
 	}
 	html.WriteByte('>')
 
-	addStringOrFunc("", p.Body, "")
+	for _, c := range content {
+		addStringOrFunc("", c, "")
+	}
 
 	html.WriteString("</body></html>")
 
@@ -258,10 +257,6 @@ func (p *Page) build() *component {
 		HTML(html.String(), Extreme),
 		markers...,
 	)
-}
-
-func NewPage(page Page, markers ...Marker) *component {
-	return page.build()
 }
 
 type component struct {
