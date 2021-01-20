@@ -33,7 +33,7 @@ func addToCssJs(id string, css css, js js) {
 	css.css = strings.ReplaceAll(
 		css.css,
 		":root",
-		fmt.Sprintf(`[data-freak=%q]`, id),
+		fmt.Sprintf(`[data-freak^=%q]`, id+":"),
 	)
 
 	cssMux.Lock()

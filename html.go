@@ -18,7 +18,6 @@ type htmlFlagHolder struct {
 }
 
 const dataFreakAttr = "data-freak"
-const jsDataFreakAttr = "data-freak-js"
 
 const (
 	compressAttrQuotes = HTMLCompress(1 << iota)
@@ -547,26 +546,35 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder, isTop bool)
 func (hc *html) processFreakAttr(node *html_parser.Node, isTop bool) {
 
 	/*
-		'data-freak="abc123"'        // top, no JS
-		'data-freak="abc123:Foo:"'   // top, with JS
-		'data-freak=":abc123:Foo:"'  // non-top, with JS
+		'data-freak="abc123:"'      // top, no JS
+		'data-freak="abc123:Foo"'   // top, with JS
+		'data-freak=":abc123:Foo"'  // non-top, with JS
 	*/
 
-	for _, attr := range node.Attr {
-		if attr.Key == jsDataFreakAttr {
-			attr.Key = dataFreakAttr
-			attr.Val = ":" + hc.compId + ":" + attr.Val + ":"
-			if isTop {
-				attr.Val = attr.Val[1:]
-			}
-			return
+	for i := range node.Attr {
+		var attr = &node.Attr[i]
+
+		if attr.Key != dataFreakAttr {
+			continue
 		}
+
+		if isTop {
+			if len(attr.Val) == 0 {
+				attr.Val = hc.compId + ":"
+			} else {
+				attr.Val = hc.compId + ":" + attr.Val
+			}
+		} else {
+			attr.Val = ":" + hc.compId + ":" + attr.Val
+		}
+
+		return
 	}
 
 	if isTop {
 		node.Attr = append(node.Attr, html_parser.Attribute{
 			Key: dataFreakAttr,
-			Val: hc.compId,
+			Val: hc.compId + ":",
 		})
 	}
 	return

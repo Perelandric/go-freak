@@ -48,6 +48,10 @@ freak.Base = class Base {
     
     var thisCtor = this.constructor
 
+    if (!thisCtor._event_types) {
+      freak._prepare_ctor(this.constructor)
+    }
+
     thisCtor._event_types
       .forEach(function(n) { _element.addEventListener(n, this) }, this)
 
@@ -222,13 +226,20 @@ freak.FormElementBase = class FormElementBase extends freak.Base {
 
 
 freak._getCtor = function (idName) {
+  if (idName[0] === ':') {
+    idName = idName.slice(1)
+  }
+
+  if (idName.length === 0 || idName.endsWith(":")) {
+    return null
+  }
 
   var ctor = freak.ctors.get(idName)
   if (ctor != null) {
     return ctor
   }
 
-  var parts = idName.split("-")
+  var parts = idName.split(":")
   var id = parts[0]
   var name = parts[1]
 
@@ -253,7 +264,7 @@ freak._getCtor = function (idName) {
     }
 
     freak._prepare_ctor(c)
-    freak.ctors.set(id + "-" + n, c)
+    freak.ctors.set(id + ":" + n, c)
   }
 
   if (ctor == null) {
@@ -289,16 +300,23 @@ freak._prepare_ctor = function(ctor) {
   })
 }
 
-
-document.addEventListener("DOMContentLoaded", function(e) {
-  var els = document.querySelectorAll("[data-freak-js]")
-  for (var i = 0; i < els.length; i++) {
-    var el = els[i]
-
-    const ctor = freak._getCtor(el.dataset.freakJs)
-
-    if (ctor != null) {
-      new ctor(el)
-    }
+new class extends freak.Base {
+  constructor() {
+    super(document)
   }
-}, { once: true });
+
+  _on_DOMContentLoaded(event) {
+    var els = document.querySelectorAll("[data-freak]")
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i]
+  
+      var ctor = freak._getCtor(el.dataset.freak)
+  
+      if (ctor != null) {
+        new ctor(el)
+      }
+    }
+  
+    document.removeEventListener("DOMContentLoaded", this)
+  }
+}
