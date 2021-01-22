@@ -2,6 +2,7 @@ package freak
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"sort"
 	"strconv"
@@ -535,9 +536,7 @@ func (hc *html) render(root *html_parser.Node, buf *strings.Builder, isTop bool)
 				}
 
 			} else {
-				buf.WriteString("</")
-				buf.WriteString(currNode.Data)
-				buf.WriteByte('>')
+				fmt.Fprintf(buf, "</%s>", currNode.Data)
 			}
 		}
 	}
