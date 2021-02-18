@@ -296,7 +296,10 @@ var bytesPool = sync.Pool{
 func int64ToHex(buf []byte, n int64) []byte {
 	var b = make([]byte, 0, 8)
 	for ; n != 0; n >>= 8 {
-		b = append([]byte{toHex(byte(n) >> 4), toHex(byte(n) & 0xF)}, b...)
+		b = b[0 : len(b)+2]
+		copy(b[2:], b)
+		b[0] = toHex(byte(n) >> 4)
+		b[1] = toHex(byte(n) & 0xF)
 	}
 	return append(buf, b...)
 }
