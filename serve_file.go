@@ -294,10 +294,11 @@ var bytesPool = sync.Pool{
 }
 
 func int64ToHex(buf []byte, n int64) []byte {
+	var b = make([]byte, 0, 8)
 	for ; n != 0; n >>= 8 {
-		buf = append([]byte{toHex(byte(n) >> 4), toHex(byte(n) & 0xF)}, buf...)
+		b = append([]byte{toHex(byte(n) >> 4), toHex(byte(n) & 0xF)}, b...)
 	}
-	return buf
+	return append(buf, b...)
 }
 
 const hex = "0123456789ABCDEF"
