@@ -9,7 +9,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	static "example.com/static-serve"
 )
+
+const _res_dir_name = "res"
+const _res_url_path = "/" + _res_dir_name + "/"
 
 type Route struct {
 	Path        string
@@ -54,6 +59,8 @@ type server struct {
 	css, js *os.File
 
 	isStarted bool
+
+	static_server *static.StaticServe
 }
 
 func newServer(host string, port uint16, compressionLevel int) (*Server, error) {
@@ -64,6 +71,7 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		port:             strconv.Itoa(int(port)),
 		routes:           map[string]*freakHandler{},
 		compressionLevel: compressionLevel,
+		static_server:    nil,
 	}
 
 	var err error
@@ -73,8 +81,13 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
-	err = os.Mkdir(filepath.Join(s.binaryPath, "res"), os.ModeDir)
+	err = os.Mkdir(filepath.Join(s.binaryPath, _res_dir_name), os.ModeDir)
 	if err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+
+	s.static_server, err = static.NewStaticServer(s.binaryPath)
+	if err != nil {
 		return nil, err
 	}
 
@@ -281,13 +294,13 @@ func (s *server) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	// TODO: I think I should have a separate server for resources
 
 	// Check for static resource request
-	if len(urlPath) >= 5 &&
-		urlPath[0] == '/' &&
-		urlPath[1] == 'r' &&
-		urlPath[2] == 'e' &&
-		urlPath[3] == 's' &&
-		urlPath[4] == '/' {
-		s.serveFile(resp, req, urlPath)
+	if len(urlPath) >= len(_res_url_path) &&
+		urlPath[0] == _res_url_path[0] &&
+		urlPath[1] == _res_url_path[1] &&
+		urlPath[2] == _res_url_path[2] &&
+		urlPath[3] == _res_url_path[3] &&
+		urlPath[4] == _res_url_path[4] {
+		s.static_server.ServeHTTP(resp, req)
 		return
 	}
 
