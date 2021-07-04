@@ -60,7 +60,7 @@ type server struct {
 
 	isStarted bool
 
-	static_server *static.StaticServe
+	static_server static.StaticServe
 }
 
 func newServer(host string, port uint16, compressionLevel int) (*Server, error) {
@@ -71,7 +71,6 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		port:             strconv.Itoa(int(port)),
 		routes:           map[string]*freakHandler{},
 		compressionLevel: compressionLevel,
-		static_server:    nil,
 	}
 
 	var err error
@@ -86,10 +85,12 @@ func newServer(host string, port uint16, compressionLevel int) (*Server, error) 
 		return nil, err
 	}
 
-	s.static_server, err = static.NewStaticServer(s.binaryPath)
+	static_server, err := static.NewStaticServer(s.binaryPath)
 	if err != nil {
 		return nil, err
 	}
+
+	s.static_server = *static_server
 
 	err = s.writeCssAndJs()
 	if err != nil {
