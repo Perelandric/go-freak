@@ -59,7 +59,7 @@ type response struct {
 type Response struct {
 	// This is for calling the provided callbacks via reflection.
 	// It holds a circular reference to itself.
-	thisAsValue reflect.Value
+	thisAsReflectValue reflect.Value
 
 	// This receives either the &buf or the &gzip from this struct.
 	// ONLY write to this writer, not to 'buf' or 'gzip'
@@ -117,7 +117,7 @@ func getResponse(
 			gzip: *gz,
 			buf:  *bytes.NewBuffer(make([]byte, 0, _bufMaxSize)),
 		}
-		r.thisAsValue = reflect.ValueOf(&r.Response)
+		r.thisAsReflectValue = reflect.ValueOf(&r.Response)
 	}
 
 INITIALIZE:
@@ -289,7 +289,7 @@ func (r *Response) do(c *component, dataI interface{}) {
 		return
 	}
 
-	var callArgs = [2]reflect.Value{r.thisAsValue, reflect.ValueOf(dataI)}
+	var callArgs = [2]reflect.Value{r.thisAsReflectValue, reflect.ValueOf(dataI)}
 
 	var wrapperEndStack [][]func(*Response)
 	var endStackIndex = -1

@@ -42,6 +42,7 @@ type marker struct {
 var reMarkerParts = regexp.MustCompile(
 	`(\${{}})|(}})|\${([a-zA-Z][-_\w]*){|\${([a-zA-Z][-_\w]*)}`,
 )
+var _noop_func_ = func() {}
 
 func processFuncs(h *html, markers []Marker, c *component, wrapper *wrapper) {
 	// Convert Marker slice to *marker slice
@@ -114,7 +115,7 @@ func processFuncs(h *html, markers []Marker, c *component, wrapper *wrapper) {
 		case 2: // Wrapper end '}}'
 			var newMarker = &marker{
 				// callback never gets called, but the marker must not get removed
-				callback: reflect.ValueOf(func() {}),
+				callback: reflect.ValueOf(_noop_func_),
 				kind:     wrapperEnd,
 			}
 
