@@ -16,12 +16,16 @@ import (
 const _res_dir_name = "res"
 const _res_url_path = "/" + _res_dir_name + "/"
 
-type Route struct {
+type RouteData struct {
 	Path        string
-	Route       *component
-	Catch404    bool
 	DisplayName string
 	Description string
+}
+
+type Route struct {
+	RouteData
+	Handler  func(*RouteResponse, *RouteData)
+	Catch404 bool
 }
 
 type Server server
@@ -119,10 +123,6 @@ func (s *server) setRoutes(routes []Route) error {
 	}
 
 	for _, route := range routes {
-		if route.Route == nil {
-			return fmt.Errorf("The target for path %q was nil", route.Path)
-		}
-
 		var pth = cleanPath(route.Path)
 
 		route.Path = pth
@@ -227,10 +227,6 @@ func (s *server) start() error {
 	s.isStarted = true
 
 	fmt.Println("Starting server...")
-
-	// All fragments should have been initialized, so we have a master list of
-	// pointers to all the static HTML.
-	locateSubstrings()
 
 	fmt.Println("Working directory:", s.binaryPath)
 
@@ -386,15 +382,15 @@ func (s *server) serve(
 	var r = getResponse(s, resp, req, fh.siteMapNode, doGzip)
 	defer putResponse(s, r)
 
-	r.do((*component)(fh.route.Route), &RouteData{})
+	fh.route.Handler(&RouteResponse{r: r.response}, &RouteData{})
 
-	if r.state.has(sent) {
+	if r.responseState.has(sent) {
 		// TODO: Need to actually be handling HTTP error types
 		return
 	}
 
 	var hasURLTail = tailIdx != -1
-	if hasURLTail && !tailWasCached && r.state.has(cacheTail) {
+	if hasURLTail && !tailWasCached && r.responseState.has(cacheTail) {
 		s.addTailRoute(fh, fullPth)
 	}
 }

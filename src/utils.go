@@ -11,18 +11,18 @@ import (
 // TODO: Eventually have different pools for different sizes (to some limit)
 var wrapEndingSliceStackPool sync.Pool
 
-func getWrapEndingSliceStack(expectedSize int) [][]func(*Response) {
+func getWrapEndingSliceStack[T any](expectedSize int) [][]*component[T] {
 	var v = wrapEndingSliceStackPool.Get()
-	var s [][]func(*Response)
+	var s [][]*component[T]
 
 	if v == nil {
-		s = make([][]func(*Response), expectedSize, expectedSize)
+		s = make([][]*component[T], expectedSize, expectedSize)
 
 	} else {
-		s = v.([][]func(*Response))
+		s = v.([][]*component[T])
 
 		for cap(s) < expectedSize {
-			s = append(s, make([]func(*Response), 0, 1))
+			s = append(s, make([]*component[T], 0, 1))
 		}
 
 		if len(s) < expectedSize {
@@ -36,7 +36,14 @@ func getWrapEndingSliceStack(expectedSize int) [][]func(*Response) {
 const endingFuncMaxCap = 2
 const endingSliceStackMaxCap = 2
 
-func returnWrapEndingSliceStack(s [][]func(*Response)) {
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func returnWrapEndingSliceStack[T any](s [][]*component[T]) {
 	var maxCap = min(endingSliceStackMaxCap, cap(s))
 
 	s = s[0:maxCap:maxCap]
@@ -87,6 +94,24 @@ var (
 	bytLssThan = []byte(strLssThan)
 	bytGtrThan = []byte(strGtrThan)
 )
+
+// writeUnDoubleQuote writes `s` to the Writer but with double quotes escaped
+func writeUnDoubleQuote(w io.Writer, s string) {
+	var last = 0
+
+	for i := range s {
+		if s[i] == '"' {
+			w.Write(strToBytes(s[last:i]))
+			w.Write(bytDblQuot)
+
+			last = i + 1
+		}
+	}
+
+	if last != len(s) {
+		w.Write(strToBytes(s[last:]))
+	}
+}
 
 // writeEscapeHTMLString writes `s` to the Writer but escaped for security
 func writeEscapeHTMLString(w io.Writer, s string) (n int, err error) {
