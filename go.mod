@@ -1,4 +1,4 @@
-module github.com/Perelandric/go-freak
+module freak
 
 go 1.18
 
