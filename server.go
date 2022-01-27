@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	static "example.com/static-serve"
+	static "github.com/Perelandric/static-serve"
 )
 
 const _res_dir_name = "res"
